@@ -3,8 +3,11 @@ https://github.com/thu-ml/tianshou?tab=readme-ov-file
 Installation 
 
 python -m venv env
+
 env\Scripts\activate
+
 pip install -r requirements.txt
+
 
 Then use one of the commands bellow. Old version of Maze unity may have some bugs. 
 
