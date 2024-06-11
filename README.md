@@ -1,5 +1,3 @@
-https://github.com/thu-ml/tianshou?tab=readme-ov-file
-
 Installation 
 
 python -m venv env
