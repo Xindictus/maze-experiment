@@ -6,10 +6,9 @@ from maze3D_new.Maze3DEnvRemote import Maze3D as Maze3D_v2
 
 # Experiment
 from game.experiment import Experiment
-from plot_utils.plot_utils import get_plot_and_chkpt_dir, get_config
 # RL modules
 from rl_models.utils import get_sac_agent
-
+import yaml
 import sys
 import time
 from datetime import timedelta
@@ -32,7 +31,7 @@ def get_args():
     parser.add_argument("--participant", type=str, default="test")
     parser.add_argument("--seed", type=int, default=4213)
     parser.add_argument("--scale-obs", type=int, default=0)
-    parser.add_argument("--buffer-size", type=int, default=25000)
+    parser.add_argument("--buffer-size", type=int, default=2500)
     parser.add_argument("--actor-lr", type=float, default=0.0003)
     parser.add_argument("--critic-lr", type=float, default=0.0003)
     parser.add_argument("--gamma", type=float, default=0.99)
@@ -70,6 +69,15 @@ def print_setting(agent,x):
     x.field_names = ["Agent ID", "Actor LR", "Critic LR", "Alpha LR", "Hidden Size", "Tau", "Gamma", "Batch Size", "Target Entropy", "Log Alpha", "Freeze Status"]
     x.add_row([ID,actor_lr,critic_lr,alpha_lr,hidden_size,tau,gamma,batch_size,target_entropy,log_alpha,freeze_status])
     return x
+
+def get_config(config_file='config_sac.yaml'):
+    try:
+        with open(config_file) as file:
+            yaml_data = yaml.safe_load(file)
+    except Exception as e:
+        print('Error reading the config file')
+
+    return yaml_data
 
 def check_save_dir(config,participant_name):
     checkpoint_dir = config['SAC']['chkpt']

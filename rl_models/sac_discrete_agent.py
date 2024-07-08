@@ -16,6 +16,7 @@ class DiscreteSACAgent:
         
         if config is not None:
             self.config = config
+            self.mode = config['Experiment']['mode']
             self.args.actor_lr = config['SAC']['alpha']
             self.args.critic_lr = config['SAC']['beta']
             self.args.hidden_size = [config['SAC']['layer1_size'],config['SAC']['layer2_size']]
@@ -23,7 +24,7 @@ class DiscreteSACAgent:
             self.args.tau = config['SAC']['tau']
             self.args.gamma = config['SAC']['gamma']
             self.args.batch_size = config['SAC']['batch_size']
-
+            self.args.buffer_size = config['Experiment'][self.mode]['buffer_memory_size']
             if self.ID == 'First':
                 self.freeze_agent = self.config['SAC']['freeze_agent']
             elif self.ID == 'Second':
@@ -45,7 +46,9 @@ class DiscreteSACAgent:
             self.load_file = load_file
             self.chkpt_dir = chkpt_dir
         
-
+        if not os.path.isdir(self.chkpt_dir):
+            os.makedirs(self.chkpt_dir)
+        
         self.update_interval = update_interval
         self.buffer_max_size = buffer_max_size
         self.env = env
@@ -105,6 +108,9 @@ class DiscreteSACAgent:
         if self.args.Load_Expert_Buffers:
             self.memory.merge_buffers(self.args.buffer_path_1, self.args.buffer_path_2)
 
+        if self.args.load_buffer:
+            self.memory.load_buffer(self.args.buffer_path_1)
+            
     def learn(self,cycle_i):
 
         states, actions, rewards, states_, dones,transition_info = self.memory.sample(self.args.batch_size)
@@ -165,6 +171,34 @@ class DiscreteSACAgent:
         #     print("Alpha: ", self.alpha)
 
         return  policy_loss.item(), q1_loss.item(), q2_loss.item(), self.log_alpha.exp().item()
+
+    def supervised_learn(self,states,actions,total_updates):
+        # lists to tensors
+        states = np.array(states, dtype=np.float32)
+        actions = np.array(actions, dtype=np.int32)
+
+        states = torch.from_numpy(states).float().to(device)
+        actions = torch.tensor(actions, dtype=torch.float32).to(device).unsqueeze(1)  # dim [Batch,] -> [Batch, 1]
+
+        for i in range(total_updates):
+            batch_ids = np.random.choice(states.shape[0], self.args.batch_size)
+            input_batch = states[batch_ids]
+            truth_batch = actions[batch_ids]
+
+            self.actor_optim.zero_grad()
+            action_probs = self.actor(input_batch)
+            #print(action_probs)
+            loss = F.cross_entropy(action_probs, truth_batch.squeeze(1))
+            loss.backward()
+            self.actor_optim.step()
+            
+
+
+            print("Supervised learning loss: ", loss.item())
+
+
+            
+        
 
     def add_point(self):
         self.alpha_hisotry.append(0)

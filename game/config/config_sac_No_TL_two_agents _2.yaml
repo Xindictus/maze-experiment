@@ -8,7 +8,7 @@ game:
     agent_only: False # True if playing only the RL agent (no human-in-the-loop)
     verbose: True # Used for logging
     save: True # Save models and logs
-    human_assist: True
+    human_assist: False
     human_only: False
 
     # input speed as translated by the game
@@ -35,16 +35,17 @@ SAC:
   # Type of reward function
   # Currently three reward functions are implemented
   # The implementation and the description are in the game/rewards.py file
-  # Choose on the the following: Shafti, Distance, Timeout
+  # Choose on the the following: Shafti, Distance, Timeout\
   freeze_agent: False
   reward_function: Shafti
   chkpt: rl_models/Saved_models/
   load_checkpoint: True
   load_file: rl_models/Initial/
 
-  freeze_second_agent: False
-  load_second_agent: False
-  load_second_file: None
+  freeze_second_agent: True
+  load_second_agent: True
+  load_second_file: rl_models/Initial/
+
 
 
 Experiment:
@@ -61,10 +62,10 @@ Experiment:
   # max_games_mode: Experiment iterates over games. Each game has a fixed max duration in seconds.
   # max_interactions_mode: Experiment iterates over steps. Each game has a fixed max duration in seconds.
   ################################################################################################
-  mode: no_tl   # Choose max_games_mode or max_interactions_mode
+  mode: no_tl_two_agents   # Choose max_games_mode or max_interactions_mode
 
-  no_tl:
-    max_blocks: 6  # max training games per experiment
+  no_tl_two_agents:
+    max_blocks: 10  # max training games per experiment
     games_per_block: 10
     max_duration: 40  # max duration per game in seconds
     buffer_memory_size: 3500
