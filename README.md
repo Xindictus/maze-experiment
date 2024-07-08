@@ -60,6 +60,7 @@ The experiment has 2 main modes
     ```
 
 Some  usefull arguments are:
+
     * --auto-alpha -> Enables the alpha temperature to be trained during the gradiend updates [True if used false otherwise]
     * --alpha -> sets the value to alpha temperture if --auto-alpha is false [Float value, default is 0.05]
     * --load-buffer -> Loads a buffer from path using the argument --buffer-path-1, and completes a pretrained with said buffer. [True if used false otherwise]
