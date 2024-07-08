@@ -38,7 +38,7 @@ def get_args():
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--tau", type=float, default=0.005)
     parser.add_argument("--alpha", type=float, default=0.05)
-    parser.add_argument("--auto-alpha", action="store_true", default=True)
+    parser.add_argument("--auto-alpha", action="store_true", default=False)
     parser.add_argument("--alpha-lr", type=float, default=0.001)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--hidden-size", type=int, default=[32, 32])
@@ -50,10 +50,10 @@ def get_args():
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
     )
 
-    parser.add_argument("--avg-q", action="store_true", default=True)
-    parser.add_argument('--clip-q', action="store_true", default=True)
+    parser.add_argument("--avg-q", action="store_true", default=False)
+    parser.add_argument('--clip-q', action="store_true", default=False)
     parser.add_argument("--clip-q-epsilon", type=float, default=0.5)
-    parser.add_argument("--entropy-penalty", action="store_true", default=True)
+    parser.add_argument("--entropy-penalty", action="store_true", default=False)
 
     parser.add_argument('--entropy-penalty-beta',type=float,default=0.5)
 

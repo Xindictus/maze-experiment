@@ -99,6 +99,7 @@ class DiscreteSACAgent:
             self.alpha_optim = torch.optim.Adam([self.log_alpha], lr=self.args.alpha_lr, eps=1e-8)
         else:
             self.log_alpha = torch.tensor(self.args.alpha, requires_grad=True, device=device)
+            self.alpha = self.log_alpha.exp()
 
         
         self.memory = ReplayBuffer(self.args.buffer_size)
