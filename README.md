@@ -1,11 +1,23 @@
-Installation 
+Installation for windows
 
+```
 python -m venv env
 
 env\Scripts\activate
 
 pip install -r requirements.txt
+```
 
+
+Installation for ubuntu
+
+```
+python3 -m venv env
+
+source env/bin/activate
+
+pip install -r requirements.txt
+```
 
 Then use one of the commands bellow. Old version of Maze unity may have some bugs. 
 

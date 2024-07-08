@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 import requests as requests
 
-from plot_utils.plot_utils import get_config
+from game.game_utils import get_config
 
 
 def reward_function_timeout_penalty(goal_reached, timedout):

@@ -6,9 +6,10 @@ from maze3D_new.Maze3DEnvRemote import Maze3D as Maze3D_v2
 
 # Experiment
 from game.experiment import Experiment
+from game.game_utils import  get_config
 # RL modules
 from rl_models.utils import get_sac_agent
-import yaml
+
 import sys
 import time
 from datetime import timedelta
@@ -31,7 +32,7 @@ def get_args():
     parser.add_argument("--participant", type=str, default="test")
     parser.add_argument("--seed", type=int, default=4213)
     parser.add_argument("--scale-obs", type=int, default=0)
-    parser.add_argument("--buffer-size", type=int, default=2500)
+    parser.add_argument("--buffer-size", type=int, default=3500)
     parser.add_argument("--actor-lr", type=float, default=0.0003)
     parser.add_argument("--critic-lr", type=float, default=0.0003)
     parser.add_argument("--gamma", type=float, default=0.99)
@@ -48,6 +49,7 @@ def get_args():
     parser.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
     )
+
     parser.add_argument("--avg-q", action="store_true", default=True)
     parser.add_argument('--clip-q', action="store_true", default=True)
     parser.add_argument("--clip-q-epsilon", type=float, default=0.5)
@@ -60,6 +62,9 @@ def get_args():
 
     parser.add_argument('--Load-Expert-Buffers',action='store_true',default=False)
 
+    parser.add_argument('--load-buffer',action='store_true',default=False)
+
+
 
 
     return parser.parse_args()
@@ -69,15 +74,6 @@ def print_setting(agent,x):
     x.field_names = ["Agent ID", "Actor LR", "Critic LR", "Alpha LR", "Hidden Size", "Tau", "Gamma", "Batch Size", "Target Entropy", "Log Alpha", "Freeze Status"]
     x.add_row([ID,actor_lr,critic_lr,alpha_lr,hidden_size,tau,gamma,batch_size,target_entropy,log_alpha,freeze_status])
     return x
-
-def get_config(config_file='config_sac.yaml'):
-    try:
-        with open(config_file) as file:
-            yaml_data = yaml.safe_load(file)
-    except Exception as e:
-        print('Error reading the config file')
-
-    return yaml_data
 
 def check_save_dir(config,participant_name):
     checkpoint_dir = config['SAC']['chkpt']
@@ -101,29 +97,34 @@ def main(argv):
     print(args.config)
     
     config = get_config(args.config)
-    config = check_save_dir(config,args.participant)
+    
     print('Config loaded',config)
 
     # creating environment
     maze = Maze3D_v2(config_file=args.config)
     loop = config['Experiment']['mode']
-    print_array = PrettyTable()
-    if args.agent_type == "basesac":
-        agent = get_sac_agent(args,config, maze,p_name=args.participant,ID='First')
-        agent.save_models('Initial')
-    print_array = print_setting(agent,print_array)
-
-    if loop == 'no_tl_two_agents':
+    if loop != 'human':
+        config = check_save_dir(config,args.participant)
+        print_array = PrettyTable()
         if args.agent_type == "basesac":
-            second_agent = get_sac_agent(args,config, maze, p_name=args.participant,ID='Second')
-            second_agent.save_models('Initial')
-        print_array = print_setting(second_agent,print_array)
-    else:
-        second_agent = None
+            agent = get_sac_agent(args,config, maze,p_name=args.participant,ID='First')
+            agent.save_models('Initial')
+        print_array = print_setting(agent,print_array)
 
-    print('Agent created')
-    print(print_array)
-    # create the experiment
+        if loop == 'no_tl_two_agents':
+            if args.agent_type == "basesac":
+                second_agent = get_sac_agent(args,config, maze, p_name=args.participant,ID='Second')
+                second_agent.save_models('Initial')
+            print_array = print_setting(second_agent,print_array)
+        else:
+            second_agent = None
+
+        print('Agent created')
+        print(print_array)
+        # create the experiment
+    else:
+        agent = None
+        second_agent = None
     experiment = Experiment(maze, agent, config=config,participant_name=args.participant,second_agent=second_agent)
 
     start_experiment = time.time()
@@ -131,8 +132,9 @@ def main(argv):
     # Run a Pre-Training with Expert Buffers
     print('Load Expert Buffers:',args.Load_Expert_Buffers)
     if args.Load_Expert_Buffers:
-
-        experiment.test_buffer()
+        experiment.test_buffer(2500)
+    elif args.load_buffer:
+        experiment.test_buffer(2500)
 
 
 
@@ -142,10 +144,14 @@ def main(argv):
         experiment.mz_only_agent(args.participant)
     elif loop == 'no_tl_two_agents':
         experiment.mz_two_agents(args.participant)
+    elif loop == 'eval':
+        experiment.mz_eval(args.participant)
+    elif loop == 'human':
+        experiment.human_play(args.participant)
     else:
         print("Unknown training mode")
         exit(1)
-    experiment.env.finished()
+    #experiment.env.finished()
     end_experiment = time.time()
     experiment_duration = timedelta(seconds=end_experiment - start_experiment - experiment.duration_pause_total)
     

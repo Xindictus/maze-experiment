@@ -45,9 +45,7 @@ class DiscreteSACAgent:
             self.args.batch_size = batch_size
             self.load_file = load_file
             self.chkpt_dir = chkpt_dir
-        
-        if not os.path.isdir(self.chkpt_dir):
-            os.makedirs(self.chkpt_dir)
+
         
         self.update_interval = update_interval
         self.buffer_max_size = buffer_max_size
