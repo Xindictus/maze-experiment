@@ -24,6 +24,19 @@ from game.updates_scheduler import UpdatesScheduler
 # to track memory leaks
 from pympler.tracker import SummaryTracker
 
+def load_csv(file_path):
+    """
+    Load a csv file
+    :param file_path: path to the csv file
+    :return: the data in the csv file
+    """
+    data = []
+    with open(file_path, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            data.append(row)
+    return data
+
 tracker = SummaryTracker()
 
 class Experiment:
@@ -31,16 +44,24 @@ class Experiment:
         # retrieve parameters
         self.config = config  # configuration file dictionary
         self.env = environment  # environment to play in
-        self.agent = agent  # the agent to play with
-        if second_agent is not None:
-            self.second_agent = second_agent
+        if self.config['Experiment']['mode'] != 'human':
+            self.agent = agent  # the agent to play with
+            if second_agent is not None:
+                self.second_agent = second_agent
 
-        if self.config['SAC']['load_checkpoint'] == True:
-            self.agent.load_models()
-        if self.config['SAC']['load_second_agent'] == True:
-            self.second_agent.load_models()
-        # create a gradient updates scheduler
-        #self.scheduler = UpdatesScheduler()
+            if self.config['SAC']['load_checkpoint'] == True:
+                self.agent.load_models()
+            if self.config['SAC']['load_second_agent'] == True:
+                self.second_agent.load_models()
+                #states = load_csv('results/SavedData/states.csv')
+                #print(states)
+                #actions = load_csv('results/SavedData/actions.csv')
+
+                #self.second_agent.supervised_learn(states,actions,2500)
+            # create a gradient updates scheduler
+            #self.scheduler = UpdatesScheduler()
+
+            self.isAgent_discrete = config['SAC']['discrete'] if 'SAC' in config.keys() else None
 
         # retrieve information from the config file
         self.goal = config["game"]["goal"]
@@ -53,7 +74,7 @@ class Experiment:
         self.max_game_duration = config['Experiment'][self.mode]['max_duration']
         self.max_blocks = config['Experiment'][self.mode]['max_blocks']
         self.log_interval = self.config['Experiment'][self.mode]['log_interval']
-        self.isAgent_discrete = config['SAC']['discrete'] if 'SAC' in config.keys() else None
+        
         self.second_human = config['game']['second_human'] if 'game' in config.keys() else None
         
         self.games_per_block = config['Experiment'][self.mode]['games_per_block']
@@ -181,6 +202,22 @@ class Experiment:
         # Save to pickle file
         self.save_pickle(self.participant_name, block_metrics_dict)
 
+    def mz_eval(self,participant_name):
+        block_metrics_dict = {}
+        block_metrics_dict['eval_block'] = {} 
+        block_metrics_dict = self.maze_game(block_metrics_dict,'eval_block',self.games_per_block, 0,'test')
+
+        # Save to pickle file
+        self.save_pickle(self.participant_name, block_metrics_dict)
+
+    def human_play(self,participant_name):
+        block_metrics_dict = {}
+        block_metrics_dict['human_block'] = {} 
+        block_metrics_dict = self.maze_only_human(block_metrics_dict,'human_block',self.games_per_block, 0,'train')
+
+        # Save to pickle file
+        self.save_pickle(self.participant_name, block_metrics_dict)
+
     def maze_game(self,block_metrics_dict,block_name,max_games,block_number,game_mode):
         fps_history = []
         action_history = []
@@ -203,7 +240,7 @@ class Experiment:
             is_on_pause = True
             while is_on_pause:
                 print('Game Reseting')
-                prev_observation, setting_up_duration, is_on_pause = self.env.reset()  # stores the state of the environment
+                prev_observation, setting_up_duration, is_on_pause = self.env.reset(game_mode)  # stores the state of the environment
                 norm_prev_observation = self.normalize_state(prev_observation)
             timed_out = False  # used to check if we hit the maximum train_game_number duration
             game_reward = 200  # keeps track of the rewards for each train_game_number
@@ -281,6 +318,7 @@ class Experiment:
                 
                 # set the observation for the next step
                 norm_prev_observation = norm_observation
+                prev_observation = observation
 
                 if done:
                     redundant_end_duration += self.popup_window_time
@@ -370,7 +408,7 @@ class Experiment:
             is_on_pause = True
             while is_on_pause:
                 print('Game Reseting')
-                prev_observation, setting_up_duration, is_on_pause = self.env.reset()  # stores the state of the environment
+                prev_observation, setting_up_duration, is_on_pause = self.env.reset(game_mode)  # stores the state of the environment
                 norm_prev_observation = self.normalize_state(prev_observation)
             timed_out = False  # used to check if we hit the maximum train_game_number duration
             game_reward = 200  # keeps track of the rewards for each train_game_number
@@ -449,6 +487,7 @@ class Experiment:
                 
                 # set the observation for the next step
                 norm_prev_observation = norm_observation
+                prev_observation = observation
 
                 if done:
                     redundant_end_duration += self.popup_window_time
@@ -485,11 +524,14 @@ class Experiment:
             step_counter_history.append(step_counter)
 
             if i_game >= 2 or block_number >= 1:
+                block_metrics_dict[block_name]['update_history_' + str(i_game)] = {}
                 if game_mode == 'train':
                     print('Start Offline Gradient Updates Session')
                     self.offline_grad_updates_session(i_game, block_number)
                     update_history = self.agent.collect_data()
-                    block_metrics_dict[block_name]['update_history_' + str(i_game)] = update_history
+                    update_history = self.second_agent.collect_data()
+                    block_metrics_dict[block_name]['update_history_' + str(i_game)]['agent'] = update_history
+                    block_metrics_dict[block_name]['update_history_' + str(i_game)]['second_agent'] = update_history
 
             
         
@@ -697,6 +739,147 @@ class Experiment:
             block_metrics_dict[block_name]['update_history'] = update_history
         
         return block_metrics_dict
+    
+    def maze_only_human(self,block_metrics_dict,block_name,max_games,block_number,game_mode):
+        fps_history = []
+        action_history = []
+        
+        block_distance_travel_history = []
+        agent_states = []
+        step_duration_history = []
+        game_duration_history = []
+        step_counter_history = []
+
+        rewards_history = []
+        state_history = []
+        game_score_history = []
+        done_history = []
+        # Starting the Block of games for each Training/Testing period
+        
+        train_game_success_counter = 0
+        for i_game in range(max_games):
+            game_actions = []
+            game_fps = []
+            is_on_pause = True
+            while is_on_pause:
+                print('Game Reseting')
+                prev_observation, setting_up_duration, is_on_pause = self.env.reset(game_mode)
+                norm_prev_observation = self.normalize_state(prev_observation)
+            timed_out = False
+            game_reward = 200
+            distance_travel = 0
+
+            game_reward_history = []
+            game_state_history = []
+
+
+            print('Episode: ' + str(i_game))
+
+            redundant_end_duration = 0
+            step_counter = 0
+
+            game_agent_states = []
+            step_duration_game = []
+            game_done = []
+            # Playing the Maze game
+            start_game_time = time.time()
+
+            while True:
+                step_counter += 1
+
+                if time.time() - start_game_time - redundant_end_duration >= self.max_game_duration:
+                    timed_out = True
+
+                md = str(i_game+1) + ' / ' + str(max_games) + ' -- ' + 'Last Score: ' + str(self.last_score) + ' -- ' + 'Best Score: ' + str(self.best_game_score)
+                transition = self.env.step(None, timed_out, self.action_duration, mode='human',text = md)
+                observation, reward, done, fps, duration_pause, action_pair, internet_delay = transition
+                norm_observation = self.normalize_state(observation)
+
+                redundant_end_duration += duration_pause
+
+                game_fps.append(fps)
+                
+                game_actions.append(action_pair)
+
+                # keep track of the rewards
+                game_reward_history.append(reward)
+                game_state_history.append(observation)
+                game_done.append(done)
+
+                game_reward += reward  # keep track of the total game reward
+
+                distance_travel = get_distance_traveled(distance_travel, prev_observation, observation)
+
+                new_row = {'prev_observation': prev_observation, 
+                            'human_action_1': action_pair[0], 
+                            'human_action_2': action_pair[1], 
+                            'observation': observation, 
+                            'reward': reward}
+                                                
+                game_agent_states.append(new_row)
+
+                # calculate game duration
+                step_duration = time.time() - start_game_time - duration_pause
+                step_duration_game.append(step_duration)
+                
+                # set the observation for the next step
+                norm_prev_observation = norm_observation
+                prev_observation = observation
+
+                if done:
+                    redundant_end_duration += self.popup_window_time
+
+                    # # goal is reached
+                    if not timed_out:
+                        train_game_success_counter += 1
+                    else:
+                        game_reward = 0
+                    time.sleep(self.popup_window_time)
+                    break
+                #print('After break')
+            
+            print(done,game_reward)
+            self.last_score = game_reward
+            if game_reward > self.best_game_score:
+                self.best_game_score = game_reward
+            
+            done_history.append(game_done)
+            step_duration_history.append(step_duration_game)
+            block_distance_travel_history.append(distance_travel)
+            agent_states.append(game_agent_states)
+            fps_history.append(game_fps)
+            action_history.append(game_actions)
+            rewards_history.append(game_reward_history)
+            state_history.append(game_state_history)
+            game_score_history.append(game_reward)
+
+            # keep track of total pause duration
+            end_game_time = time.time()
+            game_duration = end_game_time - start_game_time - redundant_end_duration
+            game_duration_history.append(game_duration)
+
+            step_counter_history.append(step_counter)
+
+        
+
+
+        block_metrics_dict[block_name]['fps'] = fps_history
+        block_metrics_dict[block_name]['actions'] = action_history
+        block_metrics_dict[block_name]['distance_travel'] = block_distance_travel_history
+        block_metrics_dict[block_name]['agent_states'] = agent_states
+        block_metrics_dict[block_name]['step_duration'] = step_duration_history
+        block_metrics_dict[block_name]['game_duration'] = game_duration_history
+        block_metrics_dict[block_name]['step_counter'] = step_counter_history
+        block_metrics_dict[block_name]['rewards'] = rewards_history
+        block_metrics_dict[block_name]['states'] = state_history
+        block_metrics_dict[block_name]['game_score'] = game_score_history
+        block_metrics_dict[block_name]['win_loss'] = [train_game_success_counter,self.games_per_block-train_game_success_counter]
+        block_metrics_dict[block_name]['done'] = done_history
+
+        
+        
+
+        return block_metrics_dict
 
     def save_experience(self, interaction,block_number):
         """
@@ -859,7 +1042,8 @@ class Experiment:
                             print('Cycle:',cycle_i,'Policy Loss:',policy_loss,'Q1 Loss:',q1_loss,'Q2 Loss:',q2_loss,'Alpha:',alpha_temp)
                         
                     if self.mode == 'no_tl_two_agents':
-                        policy_loss,q1_loss,q2_loss,alpha_temp = self.second_agent.learn(block_number)
+                        if self.config['SAC']['freeze_second_agent'] == False:
+                            policy_loss,q1_loss,q2_loss,alpha_temp = self.second_agent.learn(block_number)
 
                     # update the target networks
                     self.agent.soft_update_target()
@@ -870,6 +1054,6 @@ class Experiment:
 
         return end_grad_updates - start_grad_updates - misc_duration
     
-    def test_buffer(self):
-        self.grad_updates(2500, 0)
+    def test_buffer(self,grand_updates):
+        self.grad_updates(grand_updates, 0)
     

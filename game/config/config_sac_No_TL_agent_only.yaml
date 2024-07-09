@@ -9,6 +9,7 @@ game:
     verbose: True # Used for logging
     save: True # Save models and logs
     human_assist: False
+    human_only: False
 
     # input speed as translated by the game
     human_speed: 50

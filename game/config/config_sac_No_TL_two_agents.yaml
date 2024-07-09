@@ -9,6 +9,7 @@ game:
     verbose: True # Used for logging
     save: True # Save models and logs
     human_assist: False
+    human_only: False
 
     # input speed as translated by the game
     human_speed: 50
@@ -39,7 +40,7 @@ SAC:
   reward_function: Shafti
   chkpt: rl_models/Saved_models/
   load_checkpoint: True
-  load_file: rl_models/Final/
+  load_file: rl_models/Policy_Transfer/
 
   freeze_second_agent: False
   load_second_agent: True

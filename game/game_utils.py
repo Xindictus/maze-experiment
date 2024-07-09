@@ -1,10 +1,18 @@
 import math
 from datetime import timedelta
-
+import yaml
 # column_names = ["actions_x", "actions_y", "tray_rot_x", "tray_rot_y", "tray_rot_vel_x", "tray_rot_vel_y",
 #                 "ball_pos_x", "ball_pos_y", "ball_vel_x", "ball_vel_y"]
 column_names = ["prev_observation", "real_agent_action", "env_egent_action", "human_action", "observation", "reward"]
 
+def get_config(config_file='config_sac.yaml'):
+    try:
+        with open(config_file) as file:
+            yaml_data = yaml.safe_load(file)
+    except Exception as e:
+        print('Error reading the config file')
+
+    return yaml_data
 
 def get_distance_traveled(dist_travel, prev_observation, observation):
     """
