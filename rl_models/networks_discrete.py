@@ -82,10 +82,14 @@ class ReplayBuffer:
     def load_buffer(self, path):
         self.storage = np.load(path, allow_pickle=True).tolist()
 
-    def merge_buffers(self, path1, path2):
-        buffer1 = np.load(path1, allow_pickle=True).tolist()
-        buffer2 = np.load(path2, allow_pickle=True).tolist()
-        self.storage = buffer1 + buffer2
+    def merge_buffers(self, args):
+        buffer1 = np.load(args.buffer_path_1, allow_pickle=True).tolist()
+        buffer2 = np.load(args.buffer_path_2, allow_pickle=True).tolist()
+        if args.buffer_path_3 is not None:
+            buffer3 = np.load(args.buffer_path_3, allow_pickle=True).tolist()
+            self.storage = buffer1 + buffer2 + buffer3
+        else:
+            self.storage = buffer1 + buffer2
         self.next_idx = len(self.storage)
 
 

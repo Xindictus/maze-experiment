@@ -59,6 +59,7 @@ def get_args():
 
     parser.add_argument('--buffer-path-1',type=str,default='game/Saved_Buffers/Buffer_Cris.npy')
     parser.add_argument('--buffer-path-2',type=str,default='game/Saved_Buffers/Buffer_Koutris.npy')
+    parser.add_argument('--buffer-path-3',type=str,default=None)
 
     parser.add_argument('--Load-Expert-Buffers',action='store_true',default=False)
 

@@ -105,7 +105,7 @@ class DiscreteSACAgent:
         self.memory = ReplayBuffer(self.args.buffer_size)
         
         if self.args.Load_Expert_Buffers:
-            self.memory.merge_buffers(self.args.buffer_path_1, self.args.buffer_path_2)
+            self.memory.merge_buffers(self.args)
 
         if self.args.load_buffer:
             self.memory.load_buffer(self.args.buffer_path_1)
