@@ -78,6 +78,9 @@ def print_setting(agent,x):
 
 def check_save_dir(config,participant_name):
     checkpoint_dir = config['SAC']['chkpt']
+    if not os.path.isdir(checkpoint_dir):
+        os.mkdir(checkpoint_dir)
+
     if os.path.isdir(os.path.join(checkpoint_dir,participant_name)) == False:
         os.mkdir(os.path.join(checkpoint_dir,participant_name))
         checkpoint_dir = os.path.join(checkpoint_dir,participant_name) + '/'
