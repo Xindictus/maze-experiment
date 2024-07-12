@@ -55,7 +55,7 @@ The experiment has 2 main modes
 
     Command for main Experiment is 
     ```
-    python sac_maze3d_train.py --config game\config\config_sac_No_TL_Two_agents.yaml --participant Name --auto-alpha
+    python sac_maze3d_train.py --config game\config\config_sac_No_TL_two_agents.yaml --participant Name --auto-alpha
 
     ```
 
