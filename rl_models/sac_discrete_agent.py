@@ -100,14 +100,13 @@ class DiscreteSACAgent:
             self.log_alpha = torch.tensor(self.args.alpha, requires_grad=True, device=device)
 
         
-        self.memory = ReplayBuffer(self.args.buffer_size)
-        
-        if self.args.Load_Expert_Buffers:
-            self.memory.merge_buffers(self.args.buffer_path_1, self.args.buffer_path_2)
+        self.memory = ReplayBuffer(args)
 
-    def learn(self,cycle_i):
 
-        states, actions, rewards, states_, dones,transition_info = self.memory.sample(self.args.batch_size)
+
+    def learn(self,block_nb):
+ 
+        states, actions, rewards, states_, dones,transition_info = self.memory.sample(block_nb,self.args.batch_size)
 
         states = torch.from_numpy(states).float().to(device)
         states_ = torch.from_numpy(states_).float().to(device)

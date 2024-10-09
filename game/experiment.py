@@ -826,7 +826,7 @@ class Experiment:
 
         if self.update_cycles > 0:
 
-            grad_updates_duration = self.grad_updates(self.update_cycles, block_number)
+            grad_updates_duration = self.grad_updates(self.update_cycles, block_number+1)
 
             print('Saving model')
             self.agent.save_models(block_number)

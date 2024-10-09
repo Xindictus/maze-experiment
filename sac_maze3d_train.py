@@ -18,52 +18,13 @@ import torch
 import os
 from prettytable import PrettyTable
 from datetime import timedelta
+from game.arguments import get_game_args
 
 """
 The code of this work is based on the following github repos:
 https://github.com/kengz/SLM-Lab
 https://github.com/EveLIn3/Discrete_SAC_LunarLander/blob/master/sac_discrete.py
 """
-
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default='')
-    parser.add_argument("--participant", type=str, default="test")
-    parser.add_argument("--seed", type=int, default=4213)
-    parser.add_argument("--scale-obs", type=int, default=0)
-    parser.add_argument("--buffer-size", type=int, default=25000)
-    parser.add_argument("--actor-lr", type=float, default=0.0003)
-    parser.add_argument("--critic-lr", type=float, default=0.0003)
-    parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument("--tau", type=float, default=0.005)
-    parser.add_argument("--alpha", type=float, default=0.05)
-    parser.add_argument("--auto-alpha", action="store_true", default=True)
-    parser.add_argument("--alpha-lr", type=float, default=0.001)
-    parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--hidden-size", type=int, default=[32, 32])
-    parser.add_argument("--hidden-sizes", type=int, nargs="*", default=[32, 32])
-    parser.add_argument("--logdir", type=str, default="log")
-    parser.add_argument("--num-actions", type=int, default=3)
-    parser.add_argument("--agent-type", type=str, default="basesac")
-    parser.add_argument(
-        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
-    )
-    parser.add_argument("--avg-q", action="store_true", default=True)
-    parser.add_argument('--clip-q', action="store_true", default=True)
-    parser.add_argument("--clip-q-epsilon", type=float, default=0.5)
-    parser.add_argument("--entropy-penalty", action="store_true", default=True)
-
-    parser.add_argument('--entropy-penalty-beta',type=float,default=0.5)
-
-    parser.add_argument('--buffer-path-1',type=str,default='game/Saved_Buffers/Buffer_Cris.npy')
-    parser.add_argument('--buffer-path-2',type=str,default='game/Saved_Buffers/Buffer_Koutris.npy')
-
-    parser.add_argument('--Load-Expert-Buffers',action='store_true',default=False)
-
-
-
-    return parser.parse_args()
 
 def print_setting(agent,x):
     ID,actor_lr,critic_lr,alpha_lr,hidden_size,tau,gamma,batch_size,target_entropy,log_alpha,freeze_status = agent.return_settings()
@@ -73,6 +34,8 @@ def print_setting(agent,x):
 
 def check_save_dir(config,participant_name):
     checkpoint_dir = config['SAC']['chkpt']
+    if not os.path.isdir(checkpoint_dir):
+        os.mkdir(checkpoint_dir)
     if os.path.isdir(os.path.join(checkpoint_dir,participant_name)) == False:
         os.mkdir(os.path.join(checkpoint_dir,participant_name))
         checkpoint_dir = os.path.join(checkpoint_dir,participant_name) + '/'
@@ -87,7 +50,7 @@ def check_save_dir(config,participant_name):
     return config
 
 def main(argv):
-    args = get_args()
+    args = get_game_args()
     # get configuration
     print('IM trying to get this config')
     print(args.config)
@@ -121,11 +84,11 @@ def main(argv):
     start_experiment = time.time()
 
     # Run a Pre-Training with Expert Buffers
-    print('Load Expert Buffers:',args.Load_Expert_Buffers)
-    if args.Load_Expert_Buffers:
-
+    
+    if args.Load_Expert_Buffers or args.dqfd:
+        print('Loading Buffer \n DQfD:',args.dqfd,'\n Expert Buffers:',args.Load_Expert_Buffers)
         experiment.test_buffer()
-
+        
 
 
     if loop == 'no_tl':

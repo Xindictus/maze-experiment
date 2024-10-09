@@ -7,7 +7,7 @@ import numpy as np
 import torch.nn.functional as F
 from datetime import date
 import random
-
+from collections import deque, namedtuple
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 """
@@ -37,20 +37,21 @@ class ReplayBuffer:
     """
     Convert to numpy
     """
-    def __init__(self, memory_size):
-        self.storage = []
-        self.memory_size = memory_size
-        self.next_idx = 0
+    def __init__(self, args):
+        self.args = args
+        self.storage = deque(maxlen=self.args.buffer_size)
+        self.memory_size = self.args.buffer_size
+
+        if self.args.Load_Expert_Buffers:
+            self.merge_buffers(self.args.buffer_path)
+        if self.args.dqfd:
+            self.load_demostration(self.args.demo_path)
+        
 
     # add the samples
     def add(self, obs, action, reward, obs_, done,transition_info):
         data = (obs, action, reward, obs_, done,transition_info)
-        if self.next_idx >= len(self.storage):
-            self.storage.append(data)
-        else:
-            self.storage[self.next_idx] = data
-        # get the next idx
-        self.next_idx = (self.next_idx + 1) % self.memory_size
+        self.storage.append(data)
 
     def get_size(self):
         return len(self.storage)
@@ -59,7 +60,10 @@ class ReplayBuffer:
     def _encode_sample(self, idx):
         obses, actions, rewards, obses_, dones = [], [], [], [], []
         for i in idx:
-            data = self.storage[i]
+            if  self.args.dqfd:
+                data = self.expert_storage[i]
+            else:
+                data = self.storage[i]
             obs, action, reward, obs_, done,transition_info = data
             obses.append(np.array(obs, copy=False))
             actions.append(np.array(action, copy=False))
@@ -69,9 +73,28 @@ class ReplayBuffer:
         return np.array(obses), np.array(actions), np.array(rewards), np.array(obses_), np.array(dones),np.array(transition_info)
 
     # sample from the memory
-    def sample(self, batch_size):
-        idxes = [random.randint(0, len(self.storage) - 1) for _ in range(batch_size)]
-        return self._encode_sample(idxes)
+    def sample(self, block_nb,batch_size):
+        if self.args.dqfd:
+            splits = [1,0.9,0.7,0.5,0.3,0.1,0.1,0,0,0,0]
+            print('Executing DQfD with split: ',splits[block_nb])
+            dem_indexes = [random.randint(0, len(self.expert_storage) - 1) for _ in range(int(batch_size*splits[block_nb]))]
+            dem_data = self._encode_sample(dem_indexes)
+
+            indexes = [random.randint(0, len(self.storage) - 1) for _ in range(int(batch_size*(1-splits[block_nb])))]
+            data = self._encode_sample(indexes)
+
+            obses = np.concatenate((dem_data[0],data[0]),axis=0)
+            actions = np.concatenate((dem_data[1],data[1]),axis=0)
+            rewards = np.concatenate((dem_data[2],data[2]),axis=0)
+            obses_ = np.concatenate((dem_data[3],data[3]),axis=0)
+            dones = np.concatenate((dem_data[4],data[4]),axis=0)
+            transition_info = np.concatenate((dem_data[5],data[5]),axis=0)
+
+            return obses, actions, rewards, obses_, dones,transition_info
+        else:
+            idxes = [random.randint(0, len(self.storage) - 1) for _ in range(batch_size)]
+            return self._encode_sample(idxes)
+    
     # Save Buffer
     def save_buffer(self, path, name):
         path = os.path.join(path, name)
@@ -82,12 +105,22 @@ class ReplayBuffer:
     def load_buffer(self, path):
         self.storage = np.load(path, allow_pickle=True).tolist()
 
-    def merge_buffers(self, path1, path2):
-        buffer1 = np.load(path1, allow_pickle=True).tolist()
-        buffer2 = np.load(path2, allow_pickle=True).tolist()
-        self.storage = buffer1 + buffer2
-        self.next_idx = len(self.storage)
+    def merge_buffers(self, path):
+        files = os.listdir(path)
+        buffers = []
+        for file in files:
+            buffers.append(np.load(os.path.join(path, file), allow_pickle=True).tolist())
+        temp_storage  = np.concatenate(buffers, axis=0)
+        print('Merged Buffers size:',len(temp_storage))
+        self.storage = deque(maxlen=len(temp_storage))
+        for data in temp_storage:
+            self.storage.append(data)
+        
+    def load_demostration(self, path):
+        self.expert_storage = np.load(path, allow_pickle=True).tolist()
 
+
+    
 
 
 
