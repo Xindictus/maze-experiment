@@ -6,7 +6,7 @@ from maze3D_new.Maze3DEnvRemote import Maze3D as Maze3D_v2
 
 # Experiment
 from game.experiment import Experiment
-from plot_utils.plot_utils import get_plot_and_chkpt_dir, get_config
+from game.game_utils import  get_config
 # RL modules
 from rl_models.utils import get_sac_agent
 
@@ -56,29 +56,34 @@ def main(argv):
     print(args.config)
     
     config = get_config(args.config)
-    config = check_save_dir(config,args.participant)
+    
     print('Config loaded',config)
 
     # creating environment
     maze = Maze3D_v2(config_file=args.config)
     loop = config['Experiment']['mode']
-    print_array = PrettyTable()
-    if args.agent_type == "basesac":
-        agent = get_sac_agent(args,config, maze,p_name=args.participant,ID='First')
-        agent.save_models('Initial')
-    print_array = print_setting(agent,print_array)
-
-    if loop == 'no_tl_two_agents':
+    if loop != 'human':
+        config = check_save_dir(config,args.participant)
+        print_array = PrettyTable()
         if args.agent_type == "basesac":
-            second_agent = get_sac_agent(args,config, maze, p_name=args.participant,ID='Second')
-            second_agent.save_models('Initial')
-        print_array = print_setting(second_agent,print_array)
-    else:
-        second_agent = None
+            agent = get_sac_agent(args,config, maze,p_name=args.participant,ID='First')
+            agent.save_models('Initial')
+        print_array = print_setting(agent,print_array)
 
-    print('Agent created')
-    print(print_array)
-    # create the experiment
+        if loop == 'no_tl_two_agents':
+            if args.agent_type == "basesac":
+                second_agent = get_sac_agent(args,config, maze, p_name=args.participant,ID='Second')
+                second_agent.save_models('Initial')
+            print_array = print_setting(second_agent,print_array)
+        else:
+            second_agent = None
+
+        print('Agent created')
+        print(print_array)
+        # create the experiment
+    else:
+        agent = None
+        second_agent = None
     experiment = Experiment(maze, agent, config=config,participant_name=args.participant,second_agent=second_agent)
 
     start_experiment = time.time()
@@ -97,10 +102,14 @@ def main(argv):
         experiment.mz_only_agent(args.participant)
     elif loop == 'no_tl_two_agents':
         experiment.mz_two_agents(args.participant)
+    elif loop == 'eval':
+        experiment.mz_eval(args.participant)
+    elif loop == 'human':
+        experiment.human_play(args.participant)
     else:
         print("Unknown training mode")
         exit(1)
-    experiment.env.finished()
+    #experiment.env.finished()
     end_experiment = time.time()
     experiment_duration = timedelta(seconds=end_experiment - start_experiment - experiment.duration_pause_total)
     

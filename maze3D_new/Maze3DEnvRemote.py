@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 import requests as requests
 
-from plot_utils.plot_utils import get_config
+from game.game_utils import get_config
 
 
 def reward_function_timeout_penalty(goal_reached, timedout):
@@ -47,7 +47,7 @@ class Maze3D:
         self.set_host()
         self.send_config()
         self.agent_ready()
-        self.observation, _,_ = self.reset()
+        self.observation, _,_ = self.reset('test')
         self.observation_shape = (len(self.observation),)
         self.internet_delay = []
 
@@ -65,6 +65,7 @@ class Maze3D:
                 config['agent_speed'] = self.config['game']['agent_speed']
                 config['discrete_angle_change'] = self.config['game']['discrete_angle_change']
                 config['human_assist'] = self.config['game']['human_assist']
+                config['human_only'] = self.config['game']['human_only']
                 config['start_up_screen_display_duration'] = self.config['GUI']['start_up_screen_display_duration']
                 config['popup_window_time'] = self.config['GUI']['popup_window_time']
                 print(config)
@@ -112,10 +113,13 @@ class Maze3D:
                 self.agent_ready()
                 time.sleep(0.1)
 
-    def reset(self):
+    def reset(self,type):
         # print("reset")
         start_time = time.time()
-        res = self.send("/reset")
+        if type == 'train':
+            res = self.send("/reset")
+        elif type == 'test':
+            res = self.send("/testreset")
         set_up_time = time.time() - start_time
         # print("reset time:", set_up_time)
         # return np.array(res['observation']), res['setting_up_duration']
@@ -143,7 +147,7 @@ class Maze3D:
         # print("step", timed_out)
         # if timed_out:
         #     print("timeout", timed_out, int(time.time()))
-        if mode == 'one_agent':
+        if mode == 'one_agent' or mode == 'human':
             payload = {
                 'action_agent': action_agent,
                 'second_agent_action': -2,
