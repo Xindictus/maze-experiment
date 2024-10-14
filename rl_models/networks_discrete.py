@@ -57,10 +57,10 @@ class ReplayBuffer:
         return len(self.storage)
 
     # encode samples
-    def _encode_sample(self, idx):
+    def _encode_sample(self, idx, demo=False):
         obses, actions, rewards, obses_, dones = [], [], [], [], []
         for i in idx:
-            if  self.args.dqfd:
+            if  demo:
                 data = self.expert_storage[i]
             else:
                 data = self.storage[i]
@@ -76,20 +76,29 @@ class ReplayBuffer:
     def sample(self, block_nb,batch_size):
         if self.args.dqfd:
             splits = [1,0.9,0.7,0.5,0.3,0.1,0.1,0,0,0,0]
-            print('Executing DQfD with split: ',splits[block_nb])
+            #print('Executing DQfD with split: ',splits[block_nb])
             dem_indexes = [random.randint(0, len(self.expert_storage) - 1) for _ in range(int(batch_size*splits[block_nb]))]
-            dem_data = self._encode_sample(dem_indexes)
+            dem_data = self._encode_sample(dem_indexes,demo=True)
 
             indexes = [random.randint(0, len(self.storage) - 1) for _ in range(int(batch_size*(1-splits[block_nb])))]
-            data = self._encode_sample(indexes)
+            if len(indexes) != 0:
+                data = self._encode_sample(indexes)
 
-            obses = np.concatenate((dem_data[0],data[0]),axis=0)
-            actions = np.concatenate((dem_data[1],data[1]),axis=0)
-            rewards = np.concatenate((dem_data[2],data[2]),axis=0)
-            obses_ = np.concatenate((dem_data[3],data[3]),axis=0)
-            dones = np.concatenate((dem_data[4],data[4]),axis=0)
-            transition_info = np.concatenate((dem_data[5],data[5]),axis=0)
+                obses = np.concatenate((dem_data[0],data[0]),axis=0)
+                actions = np.concatenate((dem_data[1],data[1]),axis=0)
+                rewards = np.concatenate((dem_data[2],data[2]),axis=0)
+                obses_ = np.concatenate((dem_data[3],data[3]),axis=0)
+                dones = np.concatenate((dem_data[4],data[4]),axis=0)
+                transition_info = np.concatenate((dem_data[5],data[5]),axis=0)
 
+            elif len(indexes) == 0:
+                obses = dem_data[0]
+                actions = dem_data[1]
+                rewards = dem_data[2]
+                obses_ = dem_data[3]
+                dones = dem_data[4]
+                transition_info = dem_data[5]
+            #print(transition_info)
             return obses, actions, rewards, obses_, dones,transition_info
         else:
             idxes = [random.randint(0, len(self.storage) - 1) for _ in range(batch_size)]
@@ -110,7 +119,9 @@ class ReplayBuffer:
         buffers = []
         for file in files:
             buffers.append(np.load(os.path.join(path, file), allow_pickle=True).tolist())
-        temp_storage  = np.concatenate(buffers, axis=0)
+        temp_storage = []
+        for buffer in buffers:
+            temp_storage += buffer
         print('Merged Buffers size:',len(temp_storage))
         self.storage = deque(maxlen=len(temp_storage))
         for data in temp_storage:

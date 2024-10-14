@@ -92,7 +92,7 @@ def main(argv):
     
     if args.Load_Expert_Buffers or args.dqfd:
         print('Loading Buffer \n DQfD:',args.dqfd,'\n Expert Buffers:',args.Load_Expert_Buffers)
-        experiment.test_buffer()
+        experiment.test_buffer(2500)
         
 
 

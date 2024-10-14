@@ -23,8 +23,8 @@ class DiscreteSACAgent:
             self.args.hidden_sizes = [config['SAC']['layer1_size'],config['SAC']['layer2_size']]
             self.args.tau = config['SAC']['tau']
             self.args.gamma = config['SAC']['gamma']
-            self.args.batch_size = config['SAC']['batch_size']
-            self.args.buffer_size = config['Experiment'][self.mode]['buffer_memory_size']
+            self.args.batch_size = args.batch_size
+            self.args.buffer_size = args.buffer_size
             if self.ID == 'First':
                 self.freeze_agent = self.config['SAC']['freeze_agent']
             elif self.ID == 'Second':
@@ -109,7 +109,7 @@ class DiscreteSACAgent:
     def learn(self,block_nb):
  
         states, actions, rewards, states_, dones,transition_info = self.memory.sample(block_nb,self.args.batch_size)
-
+        #print(actions)
         states = torch.from_numpy(states).float().to(device)
         states_ = torch.from_numpy(states_).float().to(device)
         actions = torch.tensor(actions, dtype=torch.long).to(device).unsqueeze(1)  # dim [Batch,] -> [Batch, 1]
@@ -191,9 +191,6 @@ class DiscreteSACAgent:
 
             print("Supervised learning loss: ", loss.item())
 
-
-            
-        
 
     def add_point(self):
         self.alpha_hisotry.append(0)

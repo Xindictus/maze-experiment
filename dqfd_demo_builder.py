@@ -106,6 +106,8 @@ class ReplayBuffer:
         self.storage = np.array(self.storage, dtype=object)
         np.save(path, self.storage)
     
+    def get_size(self):
+        return len(self.storage)
 
 
 if __name__ == '__main__':
@@ -131,6 +133,7 @@ if __name__ == '__main__':
                     
                 prev_observation = normalize_state(transitions[0][j][k]['prev_observation'])
                 observation = normalize_state(transitions[0][j][k]['observation'])
+                #print(prev_observation)
                 action = transitions[0][j][k]['real_agent_action']
                 reward = transitions[0][j][k]['reward']
                 done = block_dones[0][j][k]
@@ -161,6 +164,7 @@ if __name__ == '__main__':
                 if t > 5:
                     t = i + 1
 
+    print("Buffer size:",buffer.get_size())
     if not os.path.isdir(args.save_path):
         os.makedirs(args.save_path)
     buffer.save_buffer(args.save_path,'buffer.npy')

@@ -31,7 +31,7 @@ def get_game_args():
     parser.add_argument('--entropy-penalty-beta',type=float,default=0.5)
 
 
-    parser.add_argument('--buffer-size', type=int, default=25000)
+    parser.add_argument('--buffer-size', type=int, default=2500)
 
     parser.add_argument('--ere', action='store_true', default=False)
     parser.add_argument('--eta', type=float, default=0.997)
