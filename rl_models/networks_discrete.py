@@ -42,7 +42,12 @@ class ReplayBuffer:
         self.storage = deque(maxlen=self.args.buffer_size)
         self.memory_size = self.args.buffer_size
 
-        if self.args.Load_Expert_Buffers:
+        if self.args.ere:
+            self.eta = self.args.eta
+            self.cmin = self.args.cmin
+            self.first_update = True
+
+        if self.args.leb:
             self.merge_buffers(self.args.buffer_path)
         if self.args.dqfd:
             self.load_demostration(self.args.demo_path)
@@ -73,9 +78,9 @@ class ReplayBuffer:
         return np.array(obses), np.array(actions), np.array(rewards), np.array(obses_), np.array(dones),np.array(transition_info)
 
     # sample from the memory
-    def sample(self, block_nb,batch_size):
+    def sample(self, block_nb,batch_size,total_updates=1000):
         if self.args.dqfd:
-            splits = [1,0.9,0.7,0.5,0.3,0.1,0.1,0,0,0,0]
+            splits = [1,0.7,0.5,0.3,0.2,0.1,0.05,0,0,0,0]
             #print('Executing DQfD with split: ',splits[block_nb])
             dem_indexes = [random.randint(0, len(self.expert_storage) - 1) for _ in range(int(batch_size*splits[block_nb]))]
             dem_data = self._encode_sample(dem_indexes,demo=True)
@@ -101,8 +106,20 @@ class ReplayBuffer:
             #print(transition_info)
             return obses, actions, rewards, obses_, dones,transition_info
         else:
-            idxes = [random.randint(0, len(self.storage) - 1) for _ in range(batch_size)]
-            return self._encode_sample(idxes)
+            if self.args.ere:
+                n = len(self.storage)
+                if self.first_update:
+                    c_k = n
+                    self.first_update = False
+                else:
+                    update_num = len(self.storage) 
+                    c_k = max(int(n * (self.eta ** (update_num * 1000/ total_updates))), self.cmin)
+                idxes_range = range(max(n-c_k,0), n)
+                idxes = random.sample(idxes_range, min(batch_size, len(idxes_range)))
+                return self._encode_sample(idxes)
+            else:
+                idxes = [random.randint(0, len(self.storage) - 1) for _ in range(batch_size)]
+                return self._encode_sample(idxes)
     
     # Save Buffer
     def save_buffer(self, path, name):
@@ -129,6 +146,7 @@ class ReplayBuffer:
         
     def load_demostration(self, path):
         self.expert_storage = np.load(path, allow_pickle=True).tolist()
+        print('Demonstration Buffer size:',len(self.expert_storage))
 
 
     
@@ -199,6 +217,18 @@ class Critic(nn.Module):
         q1 = self.qnet1(s)
         q2 = self.qnet2(s)
         return q1, q2
+
+    def sample_qvalue(self, s):
+        s = torch.from_numpy(s).float().to(device)
+        q1 = self.qnet1(s)
+        q2 = self.qnet2(s)
+        print('Q1:',q1)
+        q1 = q1.detach().cpu().numpy()
+        q2 = q2.detach().cpu().numpy()
+        Q = []
+        for i in range(len(q1)):
+            Q.append(min(q1[i], q2[i]))
+        return Q
 
     def save_checkpoint(self,block):
         torch.save(self.state_dict(), os.path.join(self.checkpoint_dir,str(block)+'_critic.pt'))

@@ -77,6 +77,13 @@ def main(argv):
             print_array = print_setting(second_agent,print_array)
         else:
             second_agent = None
+        
+        if args.ppr:
+            if args.agent_type == "basesac":
+                second_agent = get_sac_agent(args,config, maze, p_name=args.participant,ID='Expert')
+            print_array = print_setting(second_agent,print_array)
+
+
 
         print('Agent created')
         print(print_array)
@@ -84,15 +91,19 @@ def main(argv):
     else:
         agent = None
         second_agent = None
-    experiment = Experiment(maze, agent, config=config,participant_name=args.participant,second_agent=second_agent)
+    experiment = Experiment(args, maze, agent, config=config,participant_name=args.participant,second_agent=second_agent)
 
     start_experiment = time.time()
 
     # Run a Pre-Training with Expert Buffers
     
-    if args.Load_Expert_Buffers or args.dqfd:
-        print('Loading Buffer \n DQfD:',args.dqfd,'\n Expert Buffers:',args.Load_Expert_Buffers)
+    if args.leb:
+        print('Loading Buffer \n DQfD:',args.dqfd,'\n Expert Buffers:',args.leb)
         experiment.test_buffer(2500)
+    if args.dqfd:
+        print('Loading Buffer \n DQfD:',args.dqfd,'\n Expert Buffers:',args.leb)
+        experiment.test_buffer(2500)
+        #experiment.agent.save_test_stats()
         
 
 

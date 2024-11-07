@@ -40,8 +40,11 @@ def get_game_args():
     parser.add_argument('--dqfd',action='store_true',default=False)
     parser.add_argument('--demo-path',type=str,default='game/Demonstration_Buffer/buffer.npy')
 
-    parser.add_argument('--Load-Expert-Buffers',action='store_true',default=False)
+    parser.add_argument('--leb',action='store_true',default=False)
     parser.add_argument('--buffer-path',type=str,default='game/Saved_Buffers/')
+
+    parser.add_argument('--ppr',action='store_true',default=False)
+    parser.add_argument('--expert-policy',type=str,default='rl_models/Policy_Transfer/')
 
 
 

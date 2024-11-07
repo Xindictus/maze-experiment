@@ -2,9 +2,10 @@ import torch
 import numpy as np
 from rl_models.networks_discrete import update_params, Actor, Critic, ReplayBuffer
 import torch.nn.functional as F
+from collections import deque
 import os
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+torch.autograd.set_detect_anomaly(True)
 
 class DiscreteSACAgent:
     def __init__(self,args = None, config=None, alpha=0.0003, beta=0.0003, input_dims=[8],
@@ -35,6 +36,11 @@ class DiscreteSACAgent:
                 self.load_file = config['SAC']['load_file']
             elif self.ID == 'Second':
                 self.load_file = config['SAC']['load_second_file'] 
+
+            if self.args.ppr and self.ID == 'Expert':
+                self.load_file = self.args.expert_policy
+                self.freeze_agent = True
+
         else:
             self.args.actor_lr = alpha
             self.args.critic_lr = beta
@@ -99,16 +105,35 @@ class DiscreteSACAgent:
             self.alpha_optim = torch.optim.Adam([self.log_alpha], lr=self.args.alpha_lr, eps=1e-8)
         else:
             self.log_alpha = torch.tensor(self.args.alpha, requires_grad=True, device=device)
-            self.alpha = self.log_alpha.exp()
+            self.alpha = self.args.alpha
 
         
         self.memory = ReplayBuffer(args)
 
+        self.average_reward = []
+        self.average_q = []
+        self.average_next_q = []
+        self.average_target_q = []
+        self.average_alpha = []
+        self.average_z = []
+
+        self.action1_prob = []
+        self.action2_prob = []
+        self.action3_prob = []
+
+        self.average_entropy = []
+        self.idx = 0
+
+    def update_params(self, optim, loss):
+        optim.zero_grad()
+        loss.backward(retain_graph=True)
+        optim.step()
 
 
     def learn(self,block_nb):
  
         states, actions, rewards, states_, dones,transition_info = self.memory.sample(block_nb,self.args.batch_size)
+        self.average_reward.append(np.mean(rewards))
         #print(actions)
         states = torch.from_numpy(states).float().to(device)
         states_ = torch.from_numpy(states_).float().to(device)
@@ -122,22 +147,16 @@ class DiscreteSACAgent:
         q1_loss, q2_loss, errors, mean_q1, mean_q2 = self.calc_critic_loss(batch_transitions, weights)
         policy_loss, entropies, q1, q2, action_probs = self.calc_policy_loss(batch_transitions, weights)
 
-
-        self.critic_q1_optim.zero_grad()
-        self.critic_q2_optim.zero_grad()
-        self.actor_optim.zero_grad()
-        
-        q1_loss.backward(retain_graph=True)
-        q2_loss.backward(retain_graph=True)
-        policy_loss.backward(retain_graph=True)
+        self.average_entropy.append(entropies.mean().item())
 
 
         torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 5)
+        
+        self.update_params(self.critic_q1_optim, q1_loss)
+        self.update_params(self.critic_q2_optim, q2_loss)
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 5)
+        self.update_params(self.actor_optim, policy_loss)
 
-        self.critic_q1_optim.step()
-        self.critic_q2_optim.step()
-        self.actor_optim.step()
 
         if self.args.auto_alpha:
             entropy_loss = self.calc_entropy_loss(entropies, weights)
@@ -167,29 +186,36 @@ class DiscreteSACAgent:
 
         return  policy_loss.item(), q1_loss.item(), q2_loss.item(), self.log_alpha.exp().item()
 
-    def supervised_learn(self,states,actions,total_updates):
-        # lists to tensors
+    def supervised_learn(self,block_nb):
+        states, actions, rewards, states_, dones,transition_info = self.memory.sample(block_nb,self.args.batch_size)
+        action_tensor = []
+        for action in actions:
+            temp = [0,0,0]
+            temp[int(action)] = 1
+            action_tensor.append(temp)
+
+        actions = action_tensor
+
         states = np.array(states, dtype=np.float32)
         actions = np.array(actions, dtype=np.int32)
 
         states = torch.from_numpy(states).float().to(device)
         actions = torch.tensor(actions, dtype=torch.float32).to(device).unsqueeze(1)  # dim [Batch,] -> [Batch, 1]
 
-        for i in range(total_updates):
-            batch_ids = np.random.choice(states.shape[0], self.args.batch_size)
-            input_batch = states[batch_ids]
-            truth_batch = actions[batch_ids]
 
-            self.actor_optim.zero_grad()
-            action_probs = self.actor(input_batch)
-            #print(action_probs)
-            loss = F.cross_entropy(action_probs, truth_batch.squeeze(1))
-            loss.backward()
-            self.actor_optim.step()
-            
+        self.actor_optim.zero_grad()
+        action_probs = self.actor(states)
+        #print(action_probs)
+        #print(action_probs)
+        #print(actions)
+        loss = F.cross_entropy(action_probs, actions.squeeze(1))
+        loss.backward()
+        self.actor_optim.step()
+        
 
 
-            print("Supervised learning loss: ", loss.item())
+        #print("Supervised learning loss: ", loss.item())
+        return loss.item()
 
 
     def add_point(self):
@@ -210,6 +236,7 @@ class DiscreteSACAgent:
         curr_q1, curr_q2 = self.critic(states)
         curr_q1 = curr_q1.gather(1, actions)  # select the Q corresponding to chosen A
         curr_q2 = curr_q2.gather(1, actions)
+        self.average_q.append(min(curr_q1.mean().item(),curr_q2.mean().item()))
         return curr_q1, curr_q2
 
     def calc_target_q(self, states, actions, rewards, next_states, dones):
@@ -219,20 +246,32 @@ class DiscreteSACAgent:
             log_action_probs = torch.log(action_probs + z)
 
             next_q1, next_q2 = self.target_critic(next_states)
+            self.average_next_q.append(min(next_q1.mean().item(),next_q2.mean().item()))
+            self.average_z.append(z.mean().item())
+            self.average_alpha.append(self.alpha.item())
+
+            for a in range(3):
+                temp = action_probs[:,a].unsqueeze(1)
+                if a == 0:
+                    self.action1_prob.append(temp.mean().item())
+                elif a == 1:
+                    self.action2_prob.append(temp.mean().item())
+                elif a == 2:
+                    self.action3_prob.append(temp.mean().item())
             # next_q = (action_probs * (
             #     torch.min(next_q1, next_q2) - self.alpha * log_action_probs
             # )).mean(dim=1).view(self.memory_batch_size, 1) # E = probs T . values
 
             next_q = action_probs * (torch.min(next_q1, next_q2) - self.alpha * log_action_probs)
             next_q = next_q.sum(dim=1)
-
+            #print((1 - dones).mean())
             target_q = rewards + (1 - dones) * self.args.gamma * (next_q)
             return target_q.unsqueeze(1)
 
  
     def calc_critic_loss(self, batch, weights):
         target_q = self.calc_target_q(*batch)
-
+        self.average_target_q.append(target_q.mean().item())
         # TD errors for updating priority weights
         # errors = torch.abs(curr_q1.detach() - target_q)
         errors = None
@@ -263,8 +302,8 @@ class DiscreteSACAgent:
         # Q for every actions to calculate expectations of Q.
         # q1, q2 = self.critic(states)
         # q = torch.min(q1, q2)
-
-        q1, q2 = self.critic(states)
+        with torch.no_grad():
+            q1, q2 = self.critic(states)
 
         # minq = torch.min(q1, q2)
         # inside_term = alpha * log_action_probs - minq
@@ -272,6 +311,7 @@ class DiscreteSACAgent:
 
         # Expectations of entropies.
         entropies = - torch.sum(action_probs * log_action_probs, dim=1)
+        
         # Expectations of Q.
         q = torch.sum(torch.min(q1, q2) * action_probs, dim=1, keepdim=True)
 
@@ -296,6 +336,21 @@ class DiscreteSACAgent:
             self.log_alpha * (self.target_entropy - entropies).detach()
             * weights)
         return entropy_loss
+    
+    def can_learn(self,block_nb):
+        if self.args.dqfd:
+            splits = [1,0.8,0.6,0.4,0.2,0.1,0.05,0,0,0,0]
+            blk_req = int(self.args.batch_size*splits[block_nb])
+            if blk_req < self.memory.get_size():
+                return True
+            else:
+                return False
+            
+        else:
+            if self.args.buffer_size < self.memory.get_size():
+                return True
+            else:
+                return False
 
     def save_models(self,block_number):
         if self.chkpt_dir is not None:
@@ -377,3 +432,57 @@ class DiscreteSACAgent:
             alpha_lr = None
         
         return self.ID,actor_lr,critic_lr,alpha_lr,hidden_size,tau,gamma,batch_size,target_entropy,log_alpha,self.freeze_agent
+    
+    def flatten_curbs(self,data):
+        temp = []
+        window = deque(maxlen=20)
+        for i in range(len(data)):
+            window.append(data[i])
+            if len(window) == 20:
+                temp.append(np.mean(window))
+        return temp
+    def save_test_stats(self):
+        if not os.path.exists('test_stats'):
+            os.makedirs('test_stats')
+            
+        self.average_reward = self.flatten_curbs(self.average_reward)
+        self.average_q = self.flatten_curbs(self.average_q)
+        self.average_next_q = self.flatten_curbs(self.average_next_q)
+        self.average_target_q = self.flatten_curbs(self.average_target_q)
+        self.average_alpha = self.flatten_curbs(self.average_alpha)
+        self.average_z = self.flatten_curbs(self.average_z)
+        self.action1_prob = self.flatten_curbs(self.action1_prob)
+        self.action2_prob = self.flatten_curbs(self.action2_prob)
+        self.action3_prob = self.flatten_curbs(self.action3_prob)
+        self.average_entropy = self.flatten_curbs(self.average_entropy)
+         
+        save_csv('test_stats/'+'average_reward.csv',self.average_reward)
+        save_csv('test_stats/'+'average_q.csv',self.average_q)
+        save_csv('test_stats/'+'average_next_q.csv',self.average_next_q)
+        save_csv('test_stats/'+'average_target_q.csv',self.average_target_q)
+        save_csv('test_stats/'+'average_alpha.csv',self.average_alpha)
+        save_csv('test_stats/'+'average_z.csv',self.average_z)
+        save_csv('test_stats/'+'action1_prob.csv',self.action1_prob)
+        save_csv('test_stats/'+'action2_prob.csv',self.action2_prob)
+        save_csv('test_stats/'+'action3_prob.csv',self.action3_prob)
+        save_csv('test_stats/'+'entropy.csv',self.average_entropy)
+
+
+        self.average_reward = []
+        self.average_q = []
+        self.average_next_q = []
+        self.average_target_q = []
+        self.average_alpha = []
+        self.average_z = []
+        self.action1_prob = []
+        self.action2_prob = []
+        self.action3_prob = []
+        self.average_entropy = []
+
+
+import csv
+def save_csv(path,data):
+    with open(path, 'w', newline='') as file:
+        writer = csv.writer(file)
+        for row in data:
+            writer.writerow([row])

@@ -40,8 +40,9 @@ def load_csv(file_path):
 tracker = SummaryTracker()
 
 class Experiment:
-    def __init__(self, environment, agent=None, load_models=False, config=None, participant_name=None,second_agent=None):
+    def __init__(self,args, environment, agent=None, load_models=False, config=None, participant_name=None,second_agent=None):
         # retrieve parameters
+        self.args = args
         self.config = config  # configuration file dictionary
         self.env = environment  # environment to play in
         if self.config['Experiment']['mode'] != 'human':
@@ -53,13 +54,9 @@ class Experiment:
                 self.agent.load_models()
             if self.config['SAC']['load_second_agent'] == True:
                 self.second_agent.load_models()
-                #states = load_csv('results/SavedData/states.csv')
-                #print(states)
-                #actions = load_csv('results/SavedData/actions.csv')
-
-                #self.second_agent.supervised_learn(states,actions,2500)
-            # create a gradient updates scheduler
-            #self.scheduler = UpdatesScheduler()
+            if self.args.ppr:
+                self.second_agent.load_models()
+                self.probablistic_policy_reuse = [0.7,0.55,0.4,0.25,0.1,0.05,0.01]
 
             self.isAgent_discrete = config['SAC']['discrete'] if 'SAC' in config.keys() else None
 
@@ -88,6 +85,7 @@ class Experiment:
         self.human_actions, self.update_cycles = None, None
         self.save_models, self.flag = True, True
         self.duration_pause_total = 0
+        self.current_block = 0
 
     def save_pickle(self, pt_name, data, baseline = False, game_mode = 'train'):
         
@@ -131,6 +129,7 @@ class Experiment:
         test_block_metrics_dict = {}
         #self.maze_game_random_agent(0,10)
         for i_block in range(self.max_blocks):
+            self.current_block = i_block
             print("Test Block: ", i_block)
             test_block_metrics_dict['block_'+str(i_block)] = {}
             test_block_metrics_dict = self.maze_game(test_block_metrics_dict,'block_'+str(i_block),int(self.games_per_block/2), i_block,'test')
@@ -354,13 +353,13 @@ class Experiment:
 
             step_counter_history.append(step_counter)
 
-            if i_game >= 2 or block_number >= 1:
+            if self.agent.can_learn(block_number):
                 if game_mode == 'train':
                     print('Start Offline Gradient Updates Session')
                     self.offline_grad_updates_session(i_game, block_number)
                     update_history = self.agent.collect_data()
                     block_metrics_dict[block_name]['update_history_' + str(i_game)] = update_history
-        
+            
 
 
         block_metrics_dict[block_name]['fps'] = fps_history
@@ -942,7 +941,7 @@ class Experiment:
         # if playing with the agent and not with another human
 
         if not self.second_human and enemy_status == 'agent':
-            agent_action,argmax_action = self.compute_agent_action(prev_observation,enemy_status)
+            agent_action,argmax_action = self.compute_agent_action(prev_observation,enemy_status,game_mode)
             if game_mode == 'train':
                 env_agent_action = get_env_action(agent_action, self.isAgent_discrete)
             elif game_mode == 'test':
@@ -951,7 +950,7 @@ class Experiment:
 
         elif not self.second_human and enemy_status == 'second_agent':
             # compute agent's action
-            agent_action,argmax_action = self.compute_agent_action(prev_observation,enemy_status)
+            agent_action,argmax_action = self.compute_agent_action(prev_observation,enemy_status,game_mode)
             if game_mode == 'train':
                 env_agent_action = get_env_action(agent_action, self.isAgent_discrete)
             elif game_mode == 'test':
@@ -967,7 +966,7 @@ class Experiment:
             env_agent_action = get_env_action(agent_action, self.isAgent_discrete)
 
         elif not self.second_human and enemy_status == 'only_agent':
-            agent_action,argmax_action = self.compute_agent_action(prev_observation,'agent')
+            agent_action,argmax_action = self.compute_agent_action(prev_observation,'agent',game_mode)
             if game_mode == 'train':
                 multi_actions = get_agent_only_action(agent_action)
             elif game_mode == 'test':
@@ -982,10 +981,20 @@ class Experiment:
 
         return env_agent_action, agent_action
     
-    def compute_agent_action(self, observation,status):
+    def compute_agent_action(self, observation,status,game_mode):
 
         if status == 'agent':
             agent_action = self.agent.actor.sample_act(observation)  
+            if self.args.ppr and game_mode == 'train':
+                expert_action = self.second_agent.actor.sample_act(observation)
+                random_chance = random.random()
+                #print('Random Chance:',random_chance)
+                if random_chance < self.probablistic_policy_reuse[self.current_block]:
+                    agent_action = expert_action  
+
+            
+            # qvalue = self.agent.critic.sample_qvalue(observation)
+            # print(qvalue)
             return agent_action
         elif status == 'second_agent':
             agent_action = self.second_agent.actor.sample_act(observation)
@@ -1040,7 +1049,7 @@ class Experiment:
                         policy_loss,q1_loss,q2_loss,alpha_temp = self.agent.learn(block_number)
                         if cycle_i % 100 == 0:
                             print('Cycle:',cycle_i,'Policy Loss:',policy_loss,'Q1 Loss:',q1_loss,'Q2 Loss:',q2_loss,'Alpha:',alpha_temp)
-                        
+                    
                     if self.mode == 'no_tl_two_agents':
                         if self.config['SAC']['freeze_second_agent'] == False:
                             policy_loss,q1_loss,q2_loss,alpha_temp = self.second_agent.learn(block_number)
@@ -1056,4 +1065,14 @@ class Experiment:
     
     def test_buffer(self,grand_updates):
         self.grad_updates(grand_updates, 0)
+
+    def pre_train_agent(self,grand_updates):
+        if not self.second_human:
+            for cycle_i in tqdm(range(grand_updates),file=sys.stdout):
+                loss = self.agent.supervised_learn(0)
+
+                if cycle_i % 1000 == 0:
+                    print('Cycle:',cycle_i,'Loss:',loss)
+
+            self.agent.soft_update_target()
     

@@ -113,10 +113,12 @@ class ReplayBuffer:
 if __name__ == '__main__':
     args = arg_parse()
     data = load_data(args.path)
-    games = [0,2,3,3,2,0]
-
+    games = [0,2,3,3,3,2,0]
+    losses = 5
+    wins = 0
+    total_transitions = 0
     buffer = ReplayBuffer(25000)
-    for i in range(1,6):
+    for i in range(0,6):
         print("Block:",i,"Game:",games[i])
         transitions = get_agent_states(data,i)
         block_dones = get_dones(data,i)
@@ -150,11 +152,19 @@ if __name__ == '__main__':
             # save win games to buffer
             if rewards[-1] == 10:
                 if games[i] > 0:
+                    total_transitions += len(prev_obs)
                     for l in range(len(prev_obs)):
                         buffer.add(prev_obs[l],real_agent_actions[l],rewards[l],obs[l],dones[l],transitions_infos[l])
-                    games[i] -= 1
+                    wins += 1
+                games[i] -= 1
+            
+            # if rewards[-1] == -1 and losses > 0:
+            #     for l in range(len(prev_obs)):
+            #         buffer.add(prev_obs[l],real_agent_actions[l],rewards[l],obs[l],dones[l],transitions_infos[l])
+            #     losses -= 1
+                    
 
-        # If we dont have enough game to save, pass the saves to the next blocks
+        #If we dont have enough game to save, pass the saves to the next blocks
         if games[i] > 0:
             t = i + 1
             while games[i] > 0:
@@ -163,7 +173,10 @@ if __name__ == '__main__':
                 t += 1
                 if t > 5:
                     t = i + 1
+    print('Buffer has wins: ', wins)
 
+    print('Buffer has no losses: ', 5-losses)
+    print('Total transitions:',total_transitions)
     print("Buffer size:",buffer.get_size())
     if not os.path.isdir(args.save_path):
         os.makedirs(args.save_path)
