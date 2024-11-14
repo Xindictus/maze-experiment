@@ -20,6 +20,8 @@ from prettytable import PrettyTable
 from datetime import timedelta
 from game.arguments import get_game_args
 
+from rl_models.iql.agent import IQL
+
 """
 The code of this work is based on the following github repos:
 https://github.com/kengz/SLM-Lab
@@ -48,6 +50,13 @@ def check_save_dir(config,participant_name):
 
     config['SAC']['chkpt'] = checkpoint_dir
     return config
+
+def get_agent(args,config,ID):
+    if args.agent_type == "basesac":
+        agent = get_sac_agent(args,config,p_name=args.participant,ID=ID)
+    elif args.agent_type == "iql":
+        agent = IQL(args,p_name=args.participant,ID=ID)
+        
 
 def main(argv):
     args = get_game_args()
