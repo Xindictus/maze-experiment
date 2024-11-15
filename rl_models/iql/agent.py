@@ -2,18 +2,22 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
-from networks import Critic, Actor, Value
-from rl_models.iqn.buffer import ReplayBuffer
+from rl_models.iql.networks import Critic, Actor, Value
+from rl_models.iql.buffer import ReplayBuffer
 
 
 class IQL(nn.Module):
     def __init__(self,
                  args,
                  p_name,
-                 ID = 'first'
+                 ID = 'first',
+                 input_dims = (8,)
                 ): 
         super(IQL, self).__init__()
         self.args = args
+
+        self.args.state_shape = input_dims[0] 
+        self.args.action_shape  = args.num_actions
 
         self.state_size = self.args.state_shape
         self.action_size = self.args.action_shape
@@ -52,7 +56,7 @@ class IQL(nn.Module):
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=learning_rate)
         self.step = 0
 
-        memory = ReplayBuffer(buffer_size = args.buffer_size, batch_size = args.batch_size, device = self.device)
+        self.memory = ReplayBuffer(buffer_size = args.buffer_size, batch_size = args.batch_size, device = self.device)
 
     
     # def get_action(self, state, eval=False):
@@ -150,6 +154,21 @@ class IQL(nn.Module):
         """
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
+
+    def can_learn(self,block_nb):
+        if self.args.dqfd:
+            splits = [1,0.8,0.6,0.4,0.2,0.1,0.05,0,0,0,0]
+            blk_req = int(self.args.batch_size*splits[block_nb])
+            if blk_req < self.memory.__len__():
+                return True
+            else:
+                return False
+            
+        else:
+            if self.args.buffer_size < self.memory.__len__():
+                return True
+            else:
+                return False
 
 def loss(diff, expectile=0.8):
     weight = torch.where(diff > 0, expectile, (1 - expectile))

@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.distributions import Categorical
 import numpy as np
 import torch.nn.functional as F
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Actor(nn.Module):
     """Actor (Policy) Model."""
@@ -30,10 +30,11 @@ class Actor(nn.Module):
         return action, dist
         
     def sample_act(self, state):
+        state = torch.from_numpy(state).float().to(device)
         logits = self.forward(state)
         dist = Categorical(logits=logits)
         action = dist.sample()
-        argmax_action = torch.argmax(logits, dim=1)
+        argmax_action = torch.argmax(logits)
         return action.detach().cpu().numpy(), argmax_action.detach().cpu().numpy()
 
 

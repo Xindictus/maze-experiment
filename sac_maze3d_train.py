@@ -51,11 +51,13 @@ def check_save_dir(config,participant_name):
     config['SAC']['chkpt'] = checkpoint_dir
     return config
 
-def get_agent(args,config,ID):
+def get_agent(args,maze,config,ID):
     if args.agent_type == "basesac":
-        agent = get_sac_agent(args,config,p_name=args.participant,ID=ID)
+        agent = get_sac_agent(args,config,maze,p_name=args.participant,ID=ID)
     elif args.agent_type == "iql":
+        print('Creating IQL agent')
         agent = IQL(args,p_name=args.participant,ID=ID)
+    return agent
         
 
 def main(argv):
@@ -74,22 +76,21 @@ def main(argv):
     if loop != 'human':
         config = check_save_dir(config,args.participant)
         print_array = PrettyTable()
-        if args.agent_type == "basesac":
-            agent = get_sac_agent(args,config, maze,p_name=args.participant,ID='First')
-            agent.save_models('Initial')
-        print_array = print_setting(agent,print_array)
+        
+        agent = get_agent(args,maze,config,ID='First')
+        #agent.save_models('Initial')
+        #print_array = print_setting(agent,print_array)
 
         if loop == 'no_tl_two_agents':
-            if args.agent_type == "basesac":
-                second_agent = get_sac_agent(args,config, maze, p_name=args.participant,ID='Second')
-                second_agent.save_models('Initial')
+            second_agent = get_agent(args,maze,config,ID='Second')
+            second_agent.save_models('Initial')
             print_array = print_setting(second_agent,print_array)
         else:
             second_agent = None
         
         if args.ppr:
-            if args.agent_type == "basesac":
-                second_agent = get_sac_agent(args,config, maze, p_name=args.participant,ID='Expert')
+            
+            second_agent = get_agent(args,maze,config,ID='Expert')
             print_array = print_setting(second_agent,print_array)
 
 
