@@ -56,7 +56,7 @@ class IQL(nn.Module):
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=learning_rate)
         self.step = 0
 
-        self.memory = ReplayBuffer(buffer_size = args.buffer_size, batch_size = args.batch_size, device = self.device)
+        self.memory = ReplayBuffer(args=args, buffer_size = args.buffer_size, batch_size = args.batch_size, device = self.device)
 
     
     # def get_action(self, state, eval=False):
