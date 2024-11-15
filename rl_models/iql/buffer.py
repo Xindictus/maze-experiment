@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import torch
+import os
 from collections import deque, namedtuple
 
 class ReplayBuffer:
@@ -35,6 +36,12 @@ class ReplayBuffer:
         dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(self.device)
   
         return (states, actions, rewards, next_states, dones)
+    
+        # Save Buffer
+    def save_buffer(self, path, name):
+        path = os.path.join(path, name)
+        self.storage = np.array(self.storage, dtype=object)
+        np.save(path, self.storage)
 
     def __len__(self):
         """Return the current size of internal memory."""
