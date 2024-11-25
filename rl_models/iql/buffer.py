@@ -16,10 +16,17 @@ class ReplayBuffer:
             seed (int): random seed
         """
         self.args = args
+
         self.device = device
         self.memory = deque(maxlen=buffer_size)  
         self.batch_size = batch_size
         self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done", "transition_info"])
+
+        if self.args.leb:
+            self.merge_buffers(self.args.buffer_path)
+        if self.args.dqfd:
+            self.load_demostration(self.args.demo_path)
+
     
     def add(self, state, action, reward, next_state, done, tr_info):
         """Add a new experience to memory."""
@@ -45,11 +52,12 @@ class ReplayBuffer:
                 dem_batch = random.sample(self.dem_memory,k=int(self.batch_size*splits[block_nb]))
 
                 if int(self.batch_size*(1 - splits[block_nb])) > 0 :
-                    states = np.concatenate((states,torch.from_numpy(np.stack([e.state for e in dem_batch if e is not None])).float().to(self.device)))
-                    actions = np.concatenate((actions,torch.from_numpy(np.vstack([e.action for e in dem_batch if e is not None])).float().to(self.device)))
-                    rewards = np.concatenate((rewards,torch.from_numpy(np.vstack([e.reward for e in dem_batch if e is not None])).float().to(self.device)))
-                    next_states = np.concatenate((next_states,torch.from_numpy(np.stack([e.next_state for e in dem_batch if e is not None])).float().to(self.device)))
-                    dones = np.concatenate((dones,torch.from_numpy(np.vstack([e.done for e in dem_batch if e is not None]).astype(np.uint8)).float().to(self.device)))
+                    states = torch.cat((states,torch.from_numpy(np.stack([e.state for e in dem_batch if e is not None])).float().to(self.device)),0)
+                    actions = torch.cat((actions,torch.from_numpy(np.vstack([e.action for e in dem_batch if e is not None])).float().to(self.device)),0)
+                    rewards = torch.cat((rewards,torch.from_numpy(np.vstack([e.reward for e in dem_batch if e is not None])).float().to(self.device)),0)
+                    next_states = torch.cat((next_states,torch.from_numpy(np.stack([e.next_state for e in dem_batch if e is not None])).float().to(self.device)),0)
+                    dones = torch.cat((dones,torch.from_numpy(np.vstack([e.done for e in dem_batch if e is not None]).astype(np.uint8)).float().to(self.device)),0)
+                    
                 else:
                     states = torch.from_numpy(np.stack([e.state for e in dem_batch if e is not None])).float().to(self.device)
                     actions = torch.from_numpy(np.vstack([e.action for e in dem_batch if e is not None])).float().to(self.device)

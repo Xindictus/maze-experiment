@@ -106,7 +106,7 @@ class IQL(nn.Module):
 
     def learn(self,nb_block):
         self.step += 1
-        states, actions, rewards, next_states, dones = self.memory.sample()
+        states, actions, rewards, next_states, dones = self.memory.sample(nb_block)
         
         self.value_optimizer.zero_grad()
         value_loss = self.calc_value_loss(states, actions)
@@ -158,7 +158,7 @@ class IQL(nn.Module):
     def can_learn(self,block_nb):
         if self.args.dqfd:
             splits = [1,0.8,0.6,0.4,0.2,0.1,0.05,0,0,0,0]
-            blk_req = int(self.args.batch_size*splits[block_nb])
+            blk_req = int(self.args.batch_size*(1-splits[block_nb]))
             if blk_req < self.memory.__len__():
                 return True
             else:

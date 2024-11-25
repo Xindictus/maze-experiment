@@ -58,6 +58,9 @@ class DiscreteSACAgent:
         self.env = env
         self.p_name = participant_name
 
+        self.step = 0
+        self.soft_update_every = 1
+
         self.args.state_shape = input_dims[0] 
         self.args.action_shape  = args.num_actions
         print("action_shape",self.args.action_shape)
@@ -177,12 +180,10 @@ class DiscreteSACAgent:
         self.policy_loss_history.append(policy_loss.item())
 
         self.entropy_history.append(entropies.mean().item())
-
-        # if cycle_i % 25 == 0:
-        #     print("Policy loss: ", policy_loss)
-        #     print("Q1 loss: ", q1_loss)
-        #     print("Q2 loss: ", q2_loss)
-        #     print("Alpha: ", self.alpha)
+        
+        self.step += 1
+        if self.step % self.soft_update_every == 0:
+            self.soft_update_target()
 
         return  policy_loss.item(), q1_loss.item(), q2_loss.item(), self.log_alpha.exp().item()
 

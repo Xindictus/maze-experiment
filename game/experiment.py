@@ -1054,10 +1054,10 @@ class Experiment:
                         if self.config['SAC']['freeze_second_agent'] == False:
                             policy_loss,q1_loss,q2_loss,alpha_temp = self.second_agent.learn(block_number)
 
-                    # update the target networks
-                    self.agent.soft_update_target()
-                    if self.mode == 'no_tl_two_agents':
-                        self.second_agent.soft_update_target()
+                    # # update the target networks
+                    # self.agent.soft_update_target()
+                    # if self.mode == 'no_tl_two_agents':
+                    #     self.second_agent.soft_update_target()
 
             end_grad_updates = time.time()
 
