@@ -34,7 +34,7 @@ def print_setting(agent,x):
     x.add_row([ID,actor_lr,critic_lr,alpha_lr,hidden_size,tau,gamma,batch_size,target_entropy,log_alpha,freeze_status])
     return x
 
-def check_save_dir(config,participant_name):
+def check_save_dir(config,participant_name,args):
     checkpoint_dir = config['SAC']['chkpt']
     if not os.path.isdir(checkpoint_dir):
         os.mkdir(checkpoint_dir)
@@ -49,7 +49,8 @@ def check_save_dir(config,participant_name):
         checkpoint_dir = os.path.join(checkpoint_dir,participant_name+str(c)) + '/'
 
     config['SAC']['chkpt'] = checkpoint_dir
-    return config
+    args.chkpt_dir = checkpoint_dir
+    return config,args
 
 def get_agent(args,maze,config,ID):
     if args.agent_type == "basesac":
@@ -59,7 +60,6 @@ def get_agent(args,maze,config,ID):
         agent = IQL(args,p_name=args.participant,ID=ID)
     return agent
         
-
 def main(argv):
     args = get_game_args()
     # get configuration
@@ -74,12 +74,12 @@ def main(argv):
     maze = Maze3D_v2(config_file=args.config)
     loop = config['Experiment']['mode']
     if loop != 'human':
-        config = check_save_dir(config,args.participant)
+        config,args = check_save_dir(config,args.participant,args)
         print_array = PrettyTable()
         
         agent = get_agent(args,maze,config,ID='First')
-        #agent.save_models('Initial')
-        #print_array = print_setting(agent,print_array)
+        agent.save_models('Initial')
+        print_array = print_setting(agent,print_array)
 
         if loop == 'no_tl_two_agents':
             second_agent = get_agent(args,maze,config,ID='Second')
@@ -137,7 +137,6 @@ def main(argv):
     print('Total Experiment time: {}'.format(experiment_duration))
 
     return
-
 
 if __name__ == '__main__':
     main(sys.argv[1:])

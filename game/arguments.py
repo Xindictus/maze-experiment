@@ -32,6 +32,8 @@ def get_game_args():
 
 
     parser.add_argument('--buffer-size', type=int, default=2500)
+    parser.add_argument('--update-target-every', type=int, default=10)
+    parser.add_argument('--load-model', type=str, default='rl_models/Initial/')
 
     parser.add_argument('--ere', action='store_true', default=False)
     parser.add_argument('--eta', type=float, default=0.997)
