@@ -50,13 +50,13 @@ class Experiment:
             if second_agent is not None:
                 self.second_agent = second_agent
 
-            # if self.config['SAC']['load_checkpoint'] == True:
-            #     self.agent.load_models()
-            # if self.config['SAC']['load_second_agent'] == True:
-            #     self.second_agent.load_models()
-            # if self.args.ppr:
-            #     self.second_agent.load_models()
-            #     self.probablistic_policy_reuse = [0.7,0.55,0.4,0.25,0.1,0.05,0.01]
+            if self.config['SAC']['load_checkpoint'] == True:
+                self.agent.load_models()
+            if self.config['SAC']['load_second_agent'] == True:
+                self.second_agent.load_models()
+            if self.args.ppr:
+                self.second_agent.load_models()
+                self.probablistic_policy_reuse = [0.7,0.55,0.4,0.25,0.1,0.05,0.01]
 
             self.isAgent_discrete = config['SAC']['discrete'] if 'SAC' in config.keys() else None
 
@@ -210,12 +210,22 @@ class Experiment:
         self.save_pickle(self.participant_name, block_metrics_dict)
 
     def human_play(self,participant_name):
+        self.human_replay_buffer = ReplayBuffer(self.args)
+
         block_metrics_dict = {}
         block_metrics_dict['human_block'] = {} 
         block_metrics_dict = self.maze_only_human(block_metrics_dict,'human_block',self.games_per_block, 0,'train')
 
         # Save to pickle file
         self.save_pickle(self.participant_name, block_metrics_dict)
+
+        file_name = 'buffer.npy'
+        c = 1
+        while os.path.isfile(os.path.join('results',self.mode,'buffer',self.participant_name,file_name)):
+            file_name = 'buffer_'+str(c)+'.npy'
+            c += 1
+        
+        self.human_replay_buffer.save_buffer(os.path.join('results',self.mode,'buffer',self.participant_name),file_name )
 
     def maze_game(self,block_metrics_dict,block_name,max_games,block_number,game_mode):
         fps_history = []
@@ -353,7 +363,7 @@ class Experiment:
 
             step_counter_history.append(step_counter)
 
-            if self.agent.can_learn(block_number):
+            if self.agent.can_learn(block_number+1):
                 if game_mode == 'train':
                     print('Start Offline Gradient Updates Session')
                     self.offline_grad_updates_session(i_game, block_number)
@@ -816,6 +826,7 @@ class Experiment:
                             'reward': reward}
                                                 
                 game_agent_states.append(new_row)
+                self.human_replay_buffer.add(observation, action_pair[0], reward, observation, done, 'human_'+str(block_name)+'_'+str(i_game))
 
                 # calculate game duration
                 step_duration = time.time() - start_game_time - duration_pause

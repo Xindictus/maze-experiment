@@ -126,6 +126,7 @@ class DiscreteSACAgent:
 
         self.average_entropy = []
         self.idx = 0
+        self.step = 0
 
     def update_params(self, optim, loss):
         optim.zero_grad()
@@ -180,11 +181,16 @@ class DiscreteSACAgent:
         self.policy_loss_history.append(policy_loss.item())
 
         self.entropy_history.append(entropies.mean().item())
-        
-        self.step += 1
-        if self.step % self.soft_update_every == 0:
-            self.soft_update_target()
 
+        # if cycle_i % 25 == 0:
+        #     print("Policy loss: ", policy_loss)
+        #     print("Q1 loss: ", q1_loss)
+        #     print("Q2 loss: ", q2_loss)
+        #     print("Alpha: ", self.alpha)
+        self.step += 1
+        if self.args.update_target_every % self.step == 0:
+            self.soft_update_target()
+            
         return  policy_loss.item(), q1_loss.item(), q2_loss.item(), self.log_alpha.exp().item()
 
     def supervised_learn(self,block_nb):
@@ -341,7 +347,7 @@ class DiscreteSACAgent:
     def can_learn(self,block_nb):
         if self.args.dqfd:
             splits = [1,0.8,0.6,0.4,0.2,0.1,0.05,0,0,0,0]
-            blk_req = int(self.args.batch_size*splits[block_nb])
+            blk_req = int(self.args.batch_size*(1- splits[block_nb]))
             if blk_req < self.memory.get_size():
                 return True
             else:

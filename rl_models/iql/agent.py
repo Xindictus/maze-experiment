@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
 from rl_models.iql.networks import Critic, Actor, Value
 from rl_models.iql.buffer import ReplayBuffer
-
+import os
 
 class IQL(nn.Module):
     def __init__(self,
@@ -15,9 +15,15 @@ class IQL(nn.Module):
                 ): 
         super(IQL, self).__init__()
         self.args = args
+        self.p_name = p_name
+        self.ID = ID
+
+        self.load_file = os.path.join(self.args.load_model,self.args.agent_type)
 
         self.args.state_shape = input_dims[0] 
         self.args.action_shape  = args.num_actions
+
+        self.freeze_agent = False
 
         self.state_size = self.args.state_shape
         self.action_size = self.args.action_shape
@@ -33,30 +39,50 @@ class IQL(nn.Module):
         self.expectile = torch.FloatTensor([0.8]).to(self.args.device)
            
         # Actor Network 
-        self.actor = Actor(self.state_size, self.action_size, hidden_size).to(self.args.device)
+        self.actor = Actor(self.state_size, self.action_size, hidden_size, chkpt_dir=self.args.chkpt_dir,load_file = self.load_file).to(self.args.device)
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=args.actor_lr)     
         
         # Critic Network (w/ Target Network)
-        self.critic1 = Critic(self.state_size, self.action_size, hidden_size, 2).to(self.args.device)
-        self.critic2 = Critic(self.state_size, self.action_size, hidden_size, 1).to(self.args.device)
+        self.critic1 = Critic(self.state_size, self.action_size, hidden_size, 2, chkpt_dir=self.args.chkpt_dir,load_file = self.load_file).to(self.args.device)
+        self.critic2 = Critic(self.state_size, self.action_size, hidden_size, 1, chkpt_dir=self.args.chkpt_dir,load_file = self.load_file).to(self.args.device)
         
         assert self.critic1.parameters() != self.critic2.parameters()
         
-        self.critic1_target = Critic(self.state_size, self.action_size, hidden_size).to(self.args.device)
+        self.critic1_target = Critic(self.state_size, self.action_size, hidden_size, chkpt_dir=self.args.chkpt_dir,load_file = self.load_file).to(self.args.device)
         self.critic1_target.load_state_dict(self.critic1.state_dict())
 
-        self.critic2_target = Critic(self.state_size, self.action_size, hidden_size).to(self.args.device)
+        self.critic2_target = Critic(self.state_size, self.action_size, hidden_size, chkpt_dir=self.args.chkpt_dir,load_file = self.load_file).to(self.args.device)
         self.critic2_target.load_state_dict(self.critic2.state_dict())
 
         self.critic1_optimizer = optim.Adam(self.critic1.parameters(), lr=args.critic_lr)
         self.critic2_optimizer = optim.Adam(self.critic2.parameters(), lr=args.critic_lr) 
         
-        self.value_net = Value(state_size=self.state_size, hidden_size=hidden_size).to(self.args.device)
+        self.value_net = Value(state_size=self.state_size, hidden_size=hidden_size, chkpt_dir=self.args.chkpt_dir,load_file = self.load_file).to(self.args.device)
         
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=learning_rate)
         self.step = 0
 
         self.memory = ReplayBuffer(args=args, buffer_size = args.buffer_size, batch_size = args.batch_size, device = self.device)
+
+        self.alpha_history = []
+
+        self.q1_history = []
+        self.q2_history = []
+
+        self.q1_loss_history = []
+        self.q2_loss_history = []
+
+        self.policy_history = []
+        self.policy_loss_history = []
+
+        self.entropy_history = []
+        self.entropy_loss_history = []
+
+        self.states_history = []
+        self.actions_history = []
+        self.rewards_history = []
+        self.next_states_history = []
+        self.dones_history = []
 
     
     # def get_action(self, state, eval=False):
@@ -107,6 +133,7 @@ class IQL(nn.Module):
     def learn(self,nb_block):
         self.step += 1
         states, actions, rewards, next_states, dones = self.memory.sample(nb_block)
+        states, actions, rewards, next_states, dones = self.memory.sample(nb_block)
         
         self.value_optimizer.zero_grad()
         value_loss = self.calc_value_loss(states, actions)
@@ -131,7 +158,7 @@ class IQL(nn.Module):
         clip_grad_norm_(self.critic2.parameters(), self.clip_grad_param)
         self.critic2_optimizer.step()
 
-        if self.step % self.hard_update_every == 0:
+        if self.step % self.args.update_target_every == 0:
             # ----------------------- update target networks ----------------------- #
             self.hard_update(self.critic1, self.critic1_target)
             self.hard_update(self.critic2, self.critic2_target)
@@ -157,18 +184,101 @@ class IQL(nn.Module):
 
     def can_learn(self,block_nb):
         if self.args.dqfd:
-            splits = [1,0.8,0.6,0.4,0.2,0.1,0.05,0,0,0,0]
-            blk_req = int(self.args.batch_size*(1-splits[block_nb]))
+            splits = [1,0.7,0.5,0.3,0.2,0.1,0.05,0,0,0,0]
+            blk_req = int(self.args.batch_size*(1 - splits[block_nb]))
+            print(blk_req, self.memory.__len__())
             if blk_req < self.memory.__len__():
                 return True
             else:
                 return False
             
         else:
-            if self.args.buffer_size < self.memory.__len__():
+            if self.args.batch_size < self.memory.__len__():
                 return True
             else:
                 return False
+            
+    def save_models(self,block_number):
+        if self.args.chkpt_dir is not None:
+            print('.... saving models ....')
+            self.actor.save_checkpoint(block_number)
+            self.critic1.save_checkpoint(block_number,'critic1')
+            self.critic2.save_checkpoint(block_number,'critic2')
+            self.value_net.save_checkpoint(block_number)
+            #self.target_critic.save_checkpoint()
+
+    def load_models(self):
+        print('.... loading models ....')
+        self.actor.load_checkpoint()
+        self.critic1.load_checkpoint('critic1')
+        self.critic2.load_checkpoint('critic2')
+        self.value_net.load_checkpoint()
+        #self.target_critic.load_checkpoint()
+        self.hard_update(self.critic1, self.critic1_target)
+        self.hard_update(self.critic2, self.critic2_target)
+
+    def return_settings(self):
+        actor_lr = self.args.actor_lr
+        critic_lr = self.args.critic_lr
+        hidden_size = self.args.hidden_size
+        tau = self.args.tau
+        gamma = self.args.gamma
+        batch_size = self.args.batch_size
+
+        
+        target_entropy = None
+        log_alpha = None
+        alpha_lr = None
+        
+        return self.ID,actor_lr,critic_lr,alpha_lr,hidden_size,tau,gamma,batch_size,target_entropy,log_alpha,self.freeze_agent
+    
+    def collect_data(self):
+        return_data = {}
+
+        # Collect data for plotting.
+        return_data['q1'] = self.q1_history
+        return_data['q2'] = self.q2_history
+
+        return_data['policy'] = self.policy_history
+        return_data['policy_loss'] = self.policy_loss_history
+
+        return_data['q1_loss'] = self.q1_loss_history
+        return_data['q2_loss'] = self.q2_loss_history
+        
+        return_data['entropy_loss'] = self.entropy_loss_history
+        return_data['entropies'] = self.entropy_history
+        return_data['alpha'] = self.alpha_history
+
+        return_data['states'] = self.states_history
+        return_data['actions'] = self.actions_history
+        return_data['rewards'] = self.rewards_history
+        return_data['next_states'] = self.next_states_history
+        return_data['dones'] = self.dones_history
+
+
+
+        # reseting arrays
+        self.alpha_history = []
+
+        self.q1_history = []
+        self.q2_history = []
+
+        self.q1_loss_history = []
+        self.q2_loss_history = []
+
+        self.policy_history = []
+        self.policy_loss_history = []
+
+        self.entropy_history = []
+        self.entropy_loss_history = []
+
+        self.states_history = []
+        self.actions_history = []
+        self.rewards_history = []
+        self.next_states_history = []
+        self.dones_history = []
+
+        return return_data
 
 def loss(diff, expectile=0.8):
     weight = torch.where(diff > 0, expectile, (1 - expectile))
