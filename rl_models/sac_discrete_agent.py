@@ -33,9 +33,9 @@ class DiscreteSACAgent:
             
             self.chkpt_dir = config['SAC']['chkpt']
             if self.ID == 'First':
-                self.load_file = config['SAC']['load_file']
+                self.load_file = os.path.join(self.args.load_model,self.args.agent_type)
             elif self.ID == 'Second':
-                self.load_file = config['SAC']['load_second_file'] 
+                self.load_file = os.path.join(config['SAC']['load_second_file'], self.args.agent_type)
 
             if self.args.ppr and self.ID == 'Expert':
                 self.load_file = self.args.expert_policy

@@ -119,7 +119,7 @@ class Experiment:
                 os.makedirs(os.path.join('results',self.mode))
             if not os.path.exists(os.path.join('results',self.mode,game_mode)):
                 os.makedirs(os.path.join('results',self.mode,game_mode))
-
+            print('hi')
             with open(os.path.join('results',self.mode,game_mode,name_of_file), 'wb') as handle:
                 pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
@@ -213,8 +213,10 @@ class Experiment:
         self.human_replay_buffer = ReplayBuffer(self.args)
 
         block_metrics_dict = {}
-        block_metrics_dict['human_block'] = {} 
-        block_metrics_dict = self.maze_only_human(block_metrics_dict,'human_block',self.games_per_block, 0,'train')
+
+        for i_block in range(self.max_blocks):
+            block_metrics_dict['block_'+str(i_block)] = {} 
+            block_metrics_dict = self.maze_only_human(block_metrics_dict,'block_'+str(i_block),self.games_per_block, i_block,'train')
 
         # Save to pickle file
         self.save_pickle(self.participant_name, block_metrics_dict)
@@ -225,6 +227,10 @@ class Experiment:
             file_name = 'buffer_'+str(c)+'.npy'
             c += 1
         
+        if not os.path.exists(os.path.join('results',self.mode,'buffer')):
+            os.makedirs(os.path.join('results',self.mode,'buffer'))
+        if not os.path.exists(os.path.join('results',self.mode,'buffer',self.participant_name)):
+            os.makedirs(os.path.join('results',self.mode,'buffer',self.participant_name))
         self.human_replay_buffer.save_buffer(os.path.join('results',self.mode,'buffer',self.participant_name),file_name )
 
     def maze_game(self,block_metrics_dict,block_name,max_games,block_number,game_mode):

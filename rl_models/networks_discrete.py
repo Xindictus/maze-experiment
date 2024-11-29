@@ -195,7 +195,7 @@ class Actor(nn.Module):
         torch.save(self.state_dict(), os.path.join(self.checkpoint_dir,str(block)+'_actor.pt'))
 
     def load_checkpoint(self):
-        self.load_state_dict(torch.load(self.load_file+'_actor.pt',map_location=device))
+        self.load_state_dict(torch.load(os.path.join(self.load_file,'_actor.pt'),map_location=device))
 
 
 class Critic(nn.Module):
@@ -234,7 +234,7 @@ class Critic(nn.Module):
         torch.save(self.state_dict(), os.path.join(self.checkpoint_dir,str(block)+'_critic.pt'))
 
     def load_checkpoint(self):
-        self.load_state_dict(torch.load(self.load_file+'_critic.pt',map_location=device))
+        self.load_state_dict(torch.load(os.path.join(self.load_file,'_critic.pt'),map_location=device))
 
 class QNet(nn.Module):
     def __init__(self, state_dim, action_dim, n_hidden_units, name='QNet', chkpt_dir='tmp/sac'):

@@ -66,6 +66,7 @@ class Maze3D:
                 config['discrete_angle_change'] = self.config['game']['discrete_angle_change']
                 config['human_assist'] = self.config['game']['human_assist']
                 config['human_only'] = self.config['game']['human_only']
+                config['two_humans'] = self.config['game']['two_humans']
                 config['start_up_screen_display_duration'] = self.config['GUI']['start_up_screen_display_duration']
                 config['popup_window_time'] = self.config['GUI']['popup_window_time']
                 print(config)
