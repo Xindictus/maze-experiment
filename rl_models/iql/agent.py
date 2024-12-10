@@ -5,6 +5,7 @@ from torch.nn.utils import clip_grad_norm_
 from rl_models.iql.networks import Critic, Actor, Value
 from rl_models.iql.buffer import ReplayBuffer
 import os
+import numpy as np
 
 class IQL(nn.Module):
     def __init__(self,
@@ -32,7 +33,7 @@ class IQL(nn.Module):
         
         self.gamma = torch.FloatTensor([0.99]).to(self.args.device)
         self.hard_update_every = 10
-        hidden_size = 256
+        hidden_size = 32
         learning_rate = 3e-4
         self.clip_grad_param = 100
         self.temperature = torch.FloatTensor([100]).to(self.args.device)
@@ -95,8 +96,8 @@ class IQL(nn.Module):
     def calc_policy_loss(self, states, actions):
         with torch.no_grad():
             v = self.value_net(states)
-            q1 = self.critic1_target(states).gather(1, actions.long())
-            q2 = self.critic2_target(states).gather(1, actions.long())
+            q1 = self.critic1_target(states)
+            q2 = self.critic2_target(states)
             min_Q = torch.min(q1,q2)
 
         exp_a = torch.exp((min_Q - v) * self.temperature)
@@ -110,8 +111,9 @@ class IQL(nn.Module):
     
     def calc_value_loss(self, states, actions):
         with torch.no_grad():
-            q1 = self.critic1_target(states).gather(1, actions.long())
-            q2 = self.critic2_target(states).gather(1, actions.long())
+            q1 = self.critic1_target(states)
+            q2 = self.critic2_target(states)
+            #print(np.shape(q1),np.shape(q2))
             min_Q = torch.min(q1,q2)
         
         value = self.value_net(states)
@@ -123,8 +125,8 @@ class IQL(nn.Module):
             next_v = self.value_net(next_states)
             q_target = rewards + (self.gamma * (1 - dones) * next_v) 
 
-        q1 = self.critic1(states).gather(1, actions.long())
-        q2 = self.critic2(states).gather(1, actions.long())
+        q1 = self.critic1(states)
+        q2 = self.critic2(states)
         critic1_loss = ((q1 - q_target)**2).mean() 
         critic2_loss = ((q2 - q_target)**2).mean()
         return critic1_loss, critic2_loss

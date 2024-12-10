@@ -6,24 +6,31 @@ import torch.nn.functional as F
 import os
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
+def init_weights(m):
+    if type(m) == nn.Linear:
+        torch.nn.init.xavier_uniform_(m.weight)
+        m.bias.data.fill_(0.01)
+
 class Actor(nn.Module):
     """Actor (Policy) Model."""
 
     def __init__(self, state_size, action_size, hidden_size=32, chkpt_dir='tmp/sac',load_file = None):
         super(Actor, self).__init__()
        
-        self.fc1 = nn.Linear(state_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, action_size)
+        self.actor_mlp = nn.Sequential(
+            nn.Linear(state_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, action_size)
+        ).apply(init_weights)
 
         self.checkpoint_dir = chkpt_dir
         self.load_file = load_file
 
     def forward(self, state):
-
-        x = F.relu(self.fc1(state))
-        x = F.relu(self.fc2(x))
-        action_logits = self.fc3(x)
+        action_logits = self.actor_mlp(state)
         return action_logits
     
     def evaluate(self, state):
@@ -54,19 +61,22 @@ class Critic(nn.Module):
 
     def __init__(self, state_size, action_size, hidden_size=32, seed=1, chkpt_dir='tmp/sac',load_file = None):
         super(Critic, self).__init__()
-        torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, action_size)
+        #torch.manual_seed(seed)
+       
+        self.shared_mlp = nn.Sequential(
+            nn.Linear(state_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, action_size)
+        ).apply(init_weights)
 
 
         self.checkpoint_dir = chkpt_dir
         self.load_file = load_file
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        return self.shared_mlp(x)
     
         
     def save_checkpoint(self,block,n_critic):
