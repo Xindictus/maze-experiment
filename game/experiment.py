@@ -50,13 +50,13 @@ class Experiment:
             if second_agent is not None:
                 self.second_agent = second_agent
 
-            if self.config['SAC']['load_checkpoint'] == True:
-                self.agent.load_models()
-            if self.config['SAC']['load_second_agent'] == True:
-                self.second_agent.load_models()
-            if self.args.ppr:
-                self.second_agent.load_models()
-                self.probablistic_policy_reuse = [0.7,0.55,0.4,0.25,0.1,0.05,0.01]
+            # if self.config['SAC']['load_checkpoint'] == True:
+            #     self.agent.load_models()
+            # if self.config['SAC']['load_second_agent'] == True:
+            #     self.second_agent.load_models()
+            # if self.args.ppr:
+            #     self.second_agent.load_models()
+            #     self.probablistic_policy_reuse = [0.7,0.55,0.4,0.25,0.1,0.05,0.01]
 
             self.isAgent_discrete = config['SAC']['discrete'] if 'SAC' in config.keys() else None
 
@@ -119,7 +119,7 @@ class Experiment:
                 os.makedirs(os.path.join('results',self.mode))
             if not os.path.exists(os.path.join('results',self.mode,game_mode)):
                 os.makedirs(os.path.join('results',self.mode,game_mode))
-            print('hi')
+
             with open(os.path.join('results',self.mode,game_mode,name_of_file), 'wb') as handle:
                 pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         

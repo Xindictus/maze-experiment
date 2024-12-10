@@ -96,8 +96,8 @@ class IQL(nn.Module):
     def calc_policy_loss(self, states, actions):
         with torch.no_grad():
             v = self.value_net(states)
-            q1 = self.critic1_target(states)
-            q2 = self.critic2_target(states)
+            q1 = self.critic1_target(states).gather(1, actions.long())
+            q2 = self.critic2_target(states).gather(1, actions.long())
             min_Q = torch.min(q1,q2)
 
         exp_a = torch.exp((min_Q - v) * self.temperature)
@@ -111,9 +111,8 @@ class IQL(nn.Module):
     
     def calc_value_loss(self, states, actions):
         with torch.no_grad():
-            q1 = self.critic1_target(states)
-            q2 = self.critic2_target(states)
-            #print(np.shape(q1),np.shape(q2))
+            q1 = self.critic1_target(states).gather(1, actions.long())
+            q2 = self.critic2_target(states).gather(1, actions.long())
             min_Q = torch.min(q1,q2)
         
         value = self.value_net(states)
@@ -125,8 +124,8 @@ class IQL(nn.Module):
             next_v = self.value_net(next_states)
             q_target = rewards + (self.gamma * (1 - dones) * next_v) 
 
-        q1 = self.critic1(states)
-        q2 = self.critic2(states)
+        q1 = self.critic1(states).gather(1, actions.long())
+        q2 = self.critic2(states).gather(1, actions.long())
         critic1_loss = ((q1 - q_target)**2).mean() 
         critic2_loss = ((q2 - q_target)**2).mean()
         return critic1_loss, critic2_loss
@@ -134,7 +133,6 @@ class IQL(nn.Module):
 
     def learn(self,nb_block):
         self.step += 1
-        states, actions, rewards, next_states, dones = self.memory.sample(nb_block)
         states, actions, rewards, next_states, dones = self.memory.sample(nb_block)
         
         self.value_optimizer.zero_grad()

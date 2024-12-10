@@ -324,10 +324,7 @@ class DiscreteSACAgent:
 
         # Policy objective is maximization of (Q + alpha * entropy) with
         # priority weights.
-        if self.args.bc:
-            policy_loss = (weights * (- q)).mean()
         policy_loss = (weights * (- q - self.alpha * entropies)).mean()  # avg over Batch
-        
 
         return policy_loss, entropies, q1, q2, action_probs
 
