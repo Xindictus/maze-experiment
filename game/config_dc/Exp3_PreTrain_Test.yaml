@@ -65,10 +65,10 @@ Experiment:
   mode: no_tl   # Choose max_games_mode or max_interactions_mode
 
   no_tl:
-    max_blocks: 6  # max training games per experiment
+    max_blocks: 1  # max training games per experiment
     games_per_block: 5
-    test_block: True
-    training_block: True
+    test_block: False
+    training_block: False
     extra_test_block: True
     max_duration: 40  # max duration per game in seconds
     buffer_memory_size: 3500

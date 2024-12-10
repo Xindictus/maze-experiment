@@ -41,7 +41,7 @@ SAC:
   reward_function: Shafti
   chkpt: rl_models/Saved_models/
   load_checkpoint: True
-  load_file: rl_models/Initial/
+  load_file: rl_models/Policy_Transfer/
 
   freeze_second_agent: False
   load_second_agent: False
@@ -65,10 +65,10 @@ Experiment:
   mode: no_tl   # Choose max_games_mode or max_interactions_mode
 
   no_tl:
-    max_blocks: 6  # max training games per experiment
+    max_blocks: 1  # max training games per experiment
     games_per_block: 5
-    test_block: True
-    training_block: True
+    test_block: False
+    training_block: False
     extra_test_block: True
     max_duration: 40  # max duration per game in seconds
     buffer_memory_size: 3500

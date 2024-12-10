@@ -26,7 +26,7 @@ SAC:
   discrete: True
   layer1_size: 32   # Number of variables in hidden layer
   layer2_size: 32   # Number of variables in hidden layer
-  batch_size: 256
+  batch_size: 64
   gamma: 0.99  # discount factor
   tau: 0.005
   alpha: 0.0003
@@ -65,16 +65,16 @@ Experiment:
   mode: no_tl   # Choose max_games_mode or max_interactions_mode
 
   no_tl:
-    max_blocks: 6  # max training games per experiment
+    max_blocks: 1  # max training games per experiment
     games_per_block: 5
-    test_block: True
+    test_block: False
     training_block: True
-    extra_test_block: True
+    extra_test_block: False
     max_duration: 40  # max duration per game in seconds
     buffer_memory_size: 3500
     action_duration: 0.2 # Time duration in sec between consecutive RL agent actions
     learn_every_n_games: 10 # Perform offline gradient updates after every `learn_every_n_games` episodes
-    updates_per_ogu: 250 # Total number of offline gradient updates throughout the whole experiment
+    updates_per_ogu: 400 # Total number of offline gradient updates throughout the whole experiment
     reward_scale: 2
     log_interval: 10  # print avg reward in the interval
 

@@ -24,7 +24,7 @@ class DiscreteSACAgent:
             self.args.hidden_sizes = [config['SAC']['layer1_size'],config['SAC']['layer2_size']]
             self.args.tau = config['SAC']['tau']
             self.args.gamma = config['SAC']['gamma']
-            self.args.batch_size = args.batch_size
+            self.args.batch_size = config['SAC']['batch_size']
             self.args.buffer_size = args.buffer_size
             if self.ID == 'First':
                 self.freeze_agent = self.config['SAC']['freeze_agent']
@@ -33,7 +33,7 @@ class DiscreteSACAgent:
             
             self.chkpt_dir = config['SAC']['chkpt']
             if self.ID == 'First':
-                self.load_file = os.path.join(self.args.load_model,self.args.agent_type)
+                self.load_file = os.path.join(config['SAC']['load_file'],self.args.agent_type)
             elif self.ID == 'Second':
                 self.load_file = os.path.join(config['SAC']['load_second_file'], self.args.agent_type)
 
@@ -255,7 +255,7 @@ class DiscreteSACAgent:
             next_q1, next_q2 = self.target_critic(next_states)
             self.average_next_q.append(min(next_q1.mean().item(),next_q2.mean().item()))
             self.average_z.append(z.mean().item())
-            self.average_alpha.append(self.alpha.item())
+            self.average_alpha.append(self.log_alpha.exp().item())
 
             for a in range(3):
                 temp = action_probs[:,a].unsqueeze(1)
@@ -354,7 +354,9 @@ class DiscreteSACAgent:
                 return False
             
         else:
-            if self.args.buffer_size < self.memory.get_size():
+            #print(self.memory.get_size())
+            #print(self.args.buffer_size)
+            if self.args.batch_size < self.memory.get_size():
                 return True
             else:
                 return False
@@ -372,6 +374,7 @@ class DiscreteSACAgent:
         self.critic.load_checkpoint()
         #self.target_critic.load_checkpoint()
         self.soft_update_target()
+        print('.... models loaded ....')
     
     def collect_data(self):
         return_data = {}

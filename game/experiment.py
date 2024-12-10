@@ -50,13 +50,13 @@ class Experiment:
             if second_agent is not None:
                 self.second_agent = second_agent
 
-            # if self.config['SAC']['load_checkpoint'] == True:
-            #     self.agent.load_models()
-            # if self.config['SAC']['load_second_agent'] == True:
-            #     self.second_agent.load_models()
-            # if self.args.ppr:
-            #     self.second_agent.load_models()
-            #     self.probablistic_policy_reuse = [0.7,0.55,0.4,0.25,0.1,0.05,0.01]
+            if self.config['SAC']['load_checkpoint'] == True:
+                self.agent.load_models()
+            if self.config['SAC']['load_second_agent'] == True:
+                self.second_agent.load_models()
+            if self.args.ppr:
+                self.second_agent.load_models()
+                self.probablistic_policy_reuse = [0.7,0.55,0.4,0.25,0.1,0.05,0.01]
 
             self.isAgent_discrete = config['SAC']['discrete'] if 'SAC' in config.keys() else None
 
@@ -130,17 +130,21 @@ class Experiment:
         #self.maze_game_random_agent(0,10)
         for i_block in range(self.max_blocks):
             self.current_block = i_block
-            print("Test Block: ", i_block)
-            test_block_metrics_dict['block_'+str(i_block)] = {}
-            test_block_metrics_dict = self.maze_game(test_block_metrics_dict,'block_'+str(i_block),int(self.games_per_block/2), i_block,'test')
-            print("Train Block: ", i_block)
-            train_block_metrics_dict['block_'+str(i_block)] = {}
-            train_block_metrics_dict = self.maze_game(train_block_metrics_dict,'block_'+str(i_block),int(self.games_per_block/2), i_block,'train')
+            if self.config['Experiment'][self.mode]['test_block'] == True:
+                print("Test Block: ", i_block)
+                test_block_metrics_dict['block_'+str(i_block)] = {}
+                test_block_metrics_dict = self.maze_game(test_block_metrics_dict,'block_'+str(i_block),int(self.games_per_block), i_block,'test')
+
+            if self.config['Experiment'][self.mode]['training_block'] == True:
+                print("Train Block: ", i_block)
+                train_block_metrics_dict['block_'+str(i_block)] = {}
+                train_block_metrics_dict = self.maze_game(train_block_metrics_dict,'block_'+str(i_block),int(self.games_per_block), i_block,'train')
 
         # Final Testing block
-        print("Test Block: ", self.max_blocks)
-        test_block_metrics_dict['block_'+str(self.max_blocks)] = {}
-        test_block_metrics_dict = self.maze_game(test_block_metrics_dict,'block_'+str(self.max_blocks),int(self.games_per_block/2), self.max_blocks,'test')
+        if self.config['Experiment'][self.mode]['extra_test_block'] == True:
+            print("Test Block: ", self.max_blocks)
+            test_block_metrics_dict['block_'+str(self.max_blocks)] = {}
+            test_block_metrics_dict = self.maze_game(test_block_metrics_dict,'block_'+str(self.max_blocks),int(self.games_per_block), self.max_blocks,'test')
         
 
         # Save to pickle file

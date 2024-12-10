@@ -100,6 +100,10 @@ class IQL(nn.Module):
             q2 = self.critic2_target(states).gather(1, actions.long())
             min_Q = torch.min(q1,q2)
 
+            self.q1_history.append(q1.mean().item())
+            self.q2_history.append(q2.mean().item())
+
+
         exp_a = torch.exp((min_Q - v) * self.temperature)
         exp_a = torch.min(exp_a, torch.FloatTensor([100.0]).to(states.device)).squeeze(-1)
 
@@ -107,6 +111,8 @@ class IQL(nn.Module):
         log_probs = dist.log_prob(actions.squeeze(-1))
         actor_loss = -(exp_a * log_probs).mean()
 
+        self.policy_history.append(log_probs.mean().item())
+        self.policy_loss_history.append(actor_loss.mean().item())
         return actor_loss
     
     def calc_value_loss(self, states, actions):
@@ -128,6 +134,9 @@ class IQL(nn.Module):
         q2 = self.critic2(states).gather(1, actions.long())
         critic1_loss = ((q1 - q_target)**2).mean() 
         critic2_loss = ((q2 - q_target)**2).mean()
+
+        self.q1_loss_history.append(critic1_loss.mean().item())
+        self.q2_loss_history.append(critic2_loss.mean().item())
         return critic1_loss, critic2_loss
 
 
