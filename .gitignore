@@ -1,8 +1,5 @@
 __pycache__/
 results/
-Tianshou_rl/Saved_Models/
-rl_models/Saved_Models/
-rl_models/Saved_models/
-rl_models/Result/
-results/
-env/
+rl_models/saved_models/
+rl_models/result/
+.venv/

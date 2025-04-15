@@ -1,0 +1,44 @@
+[project]
+name = "maze-experiment"
+version = "0.1.0"
+description = "TODO"
+authors = []
+maintainers = []
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10.1",
+    "numpy==1.26.4",
+    "pandas>=2.2.3",
+    "pip>=25.0.1",
+    "prettytable>=3.16.0",
+    "pydantic>=2.11.0",
+    "pydantic-settings>=2.8.1",
+    "pygame>=2.6.1",
+    "pympler>=1.1",
+    "pyopengl>=3.1.9",
+    "pyparsing>=3.2.3",
+    "pyrr>=0.10.3",
+    "pywavefront>=1.3.3",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.3",
+    "scipy>=1.15.2",
+    "seaborn>=0.13.2",
+    "torch>=2.6.0",
+    "tqdm>=4.67.1",
+    "wheel>=0.45.1",
+]
+
+[tool.black]
+# Match Flake8's default
+line-length = 79
+
+[tool.isort]
+# Match black's default
+profile = "black"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0.1",
+    "ruff>=0.11.2",
+]
