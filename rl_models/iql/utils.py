@@ -7,7 +7,7 @@ def save(args, save_name, model, wandb, ep=None):
     save_dir = "./trained_models/"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    if not ep == None:
+    if ep is not None:
         torch.save(
             model.state_dict(),
             save_dir + args.run_name + save_name + str(ep) + ".pth",

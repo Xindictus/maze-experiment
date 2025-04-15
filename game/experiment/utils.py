@@ -18,7 +18,9 @@ def load_csv(file_path):
 def save_pickle(participant_name, mode, game_mode, data, is_baseline=False):
     name_of_file = f"{participant_name}_{mode}_{date.today()}.pickle"
     additional_part = 0
-    folder_path = os.path.join("results", "baseline" if is_baseline else mode, game_mode)
+    folder_path = os.path.join(
+        "results", "baseline" if is_baseline else mode, game_mode
+    )
 
     os.makedirs(folder_path, exist_ok=True)
 
@@ -34,7 +36,19 @@ def normalize_state(observation):
     def norm_feature(feature, min_val, max_val):
         return 2 * ((feature - min_val) / (max_val - min_val)) - 1
 
-    ranges = [(-2, 2), (-2, 2), (-4, 4), (-4, 4), (-30, 30), (-30, 30), (-1.9, 1.9), (-1.9, 1.9)]
-    norm_obs = [norm_feature(observation[i], *ranges[i]) for i in range(len(observation))]
+    ranges = [
+        (-2, 2),
+        (-2, 2),
+        (-4, 4),
+        (-4, 4),
+        (-30, 30),
+        (-30, 30),
+        (-1.9, 1.9),
+        (-1.9, 1.9),
+    ]
+    norm_obs = [
+        norm_feature(observation[i], *ranges[i])
+        for i in range(len(observation))
+    ]
 
     return np.clip(norm_obs, -1.3, 1.3)

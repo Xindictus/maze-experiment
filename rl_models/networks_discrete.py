@@ -22,7 +22,9 @@ def initialize_weights_he(m):
             torch.nn.init.constant_(m.bias, 0)
 
 
-# why retain graph? Do not auto free memory for one loss when computing multiple loss
+# why retain graph? Do not auto free memory for one loss
+# when computing multiple loss
+
 # https://stackoverflow.com/questions/46774641/what-does-the-parameter-retain-graph-mean-in-the-variables-backward-method
 def update_params(optim, loss):
     optim.zero_grad()
@@ -31,7 +33,7 @@ def update_params(optim, loss):
 
 
 def init_weights(m):
-    if type(m) == nn.Linear:
+    if type(m) is nn.Linear:
         torch.nn.init.xavier_uniform_(m.weight)
         m.bias.data.fill_(0.01)
 
@@ -193,7 +195,10 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
         self.checkpoint_dir = chkpt_dir
         self.load_file = load_file
-        # self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac'+ str(date.today()))
+        # self.checkpoint_file = os.path.join(
+        #   self.checkpoint_dir,
+        #   name + '_sac'+ str(date.today())
+        # )
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
         self.name = name
@@ -253,7 +258,10 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
         self.name = name
         self.checkpoint_dir = chkpt_dir
-        # self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac'+ str(date.today()))
+        # self.checkpoint_file = os.path.join(
+        #   self.checkpoint_dir,
+        #   name + '_sac'+ str(date.today())
+        # )
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
         self.load_file = load_file

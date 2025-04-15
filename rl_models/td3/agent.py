@@ -1,5 +1,4 @@
 import copy
-
 import torch
 import torch.nn.functional as F
 
@@ -45,7 +44,9 @@ class TD3_BC(object):
 
         self.total_it = 0
 
-        self.memory = ReplayBuffer(args, state_dim, action_dim, device)
+        # TODO: What is missing here?
+        # self.memory = ReplayBuffer(args, state_dim, action_dim, device)
+        self.memory = ReplayBuffer(state_dim, action_dim, device)
 
     def select_action(self, state):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)

@@ -1,10 +1,10 @@
+import csv
 import os
-from collections import deque
-
 import numpy as np
 import torch
 import torch.nn.functional as F
 
+from collections import deque
 from rl_models.networks_discrete import Actor, Critic, ReplayBuffer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -357,7 +357,8 @@ class DiscreteSACAgent:
                     self.action3_prob.append(temp.mean().item())
             # next_q = (action_probs * (
             #     torch.min(next_q1, next_q2) - self.alpha * log_action_probs
-            # )).mean(dim=1).view(self.memory_batch_size, 1) # E = probs T . values
+            # )).mean(dim=1).view(self.memory_batch_size, 1)
+            # E = probs T . values
 
             next_q = action_probs * (
                 torch.min(next_q1, next_q2) - self.alpha * log_action_probs
@@ -593,9 +594,6 @@ class DiscreteSACAgent:
         self.action2_prob = []
         self.action3_prob = []
         self.average_entropy = []
-
-
-import csv
 
 
 def save_csv(path, data):

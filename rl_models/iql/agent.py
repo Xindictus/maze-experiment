@@ -220,7 +220,7 @@ class IQL(nn.Module):
         self.critic2_optimizer.step()
 
         if self.step % self.args.update_target_every == 0:
-            # ----------------------- update target networks ----------------------- #
+            # ----------------------- update target networks ------------ #
             self.hard_update(self.critic1, self.critic1_target)
             self.hard_update(self.critic2, self.critic2_target)
 

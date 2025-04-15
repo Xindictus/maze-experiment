@@ -46,7 +46,7 @@ class ReplayBuffer:
     def sample(self, block_nb):
         if self.args.dqfd:
             splits = [1, 0.7, 0.5, 0.3, 0.2, 0.1, 0.05, 0, 0, 0, 0]
-            # print(splits[block_nb],int(self.batch_size*(1 - splits[block_nb])))
+
             if int(self.batch_size * (1 - splits[block_nb])) > 0:
                 self_data = random.sample(
                     self.memory,
