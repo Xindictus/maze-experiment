@@ -25,6 +25,7 @@ def initialize_weights_he(m):
 # why retain graph? Do not auto free memory for one loss
 # when computing multiple loss
 
+
 # https://stackoverflow.com/questions/46774641/what-does-the-parameter-retain-graph-mean-in-the-variables-backward-method
 def update_params(optim, loss):
     optim.zero_grad()

@@ -25,7 +25,11 @@ def save_pickle(participant_name, mode, game_mode, data, is_baseline=False):
     os.makedirs(folder_path, exist_ok=True)
 
     while os.path.isfile(os.path.join(folder_path, name_of_file)):
-        name_of_file = f"{participant_name}_{'baseline' if is_baseline else mode}_{date.today()}_{additional_part}.pickle"
+        name_of_file = (
+            f"{participant_name}_"
+            f"{'baseline' if is_baseline else mode}_"
+            f"{date.today()}_{additional_part}.pickle"
+        )
         additional_part += 1
 
     with open(os.path.join(folder_path, name_of_file), "wb") as handle:

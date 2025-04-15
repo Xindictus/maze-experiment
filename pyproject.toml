@@ -37,6 +37,15 @@ line-length = 79
 # Match black's default
 profile = "black"
 
+[tool.ruff]
+line-length = 79
+# E: pycodestyle
+# F: pyflakes
+# W: warnings
+# I: isort
+select = ["E", "F", "W", "I"]
+ignore = []
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.0.1",

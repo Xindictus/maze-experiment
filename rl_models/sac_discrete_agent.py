@@ -1,10 +1,11 @@
 import csv
 import os
+from collections import deque
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-from collections import deque
 from rl_models.networks_discrete import Actor, Critic, ReplayBuffer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
