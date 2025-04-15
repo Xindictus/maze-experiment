@@ -1,18 +1,29 @@
 import math
 from datetime import timedelta
+
 import yaml
+
 # column_names = ["actions_x", "actions_y", "tray_rot_x", "tray_rot_y", "tray_rot_vel_x", "tray_rot_vel_y",
 #                 "ball_pos_x", "ball_pos_y", "ball_vel_x", "ball_vel_y"]
-column_names = ["prev_observation", "real_agent_action", "env_egent_action", "human_action", "observation", "reward"]
+column_names = [
+    "prev_observation",
+    "real_agent_action",
+    "env_egent_action",
+    "human_action",
+    "observation",
+    "reward",
+]
 
-def get_config(config_file='config_sac.yaml'):
+
+def get_config(config_file="config_sac.yaml"):
     try:
         with open(config_file) as file:
             yaml_data = yaml.safe_load(file)
-    except Exception as e:
-        print('Error reading the config file')
+    except Exception:
+        print("Error reading the config file")
 
     return yaml_data
+
 
 def get_distance_traveled(dist_travel, prev_observation, observation):
     """
@@ -22,16 +33,32 @@ def get_distance_traveled(dist_travel, prev_observation, observation):
     :param observation: next observation
     :return: the total travelled distance
     """
-    dist_travel += math.sqrt((prev_observation[0] - observation[0]) * (prev_observation[0] - observation[0]) +
-                             (prev_observation[1] - observation[1]) * (prev_observation[1] - observation[1]))
+    dist_travel += math.sqrt(
+        (prev_observation[0] - observation[0])
+        * (prev_observation[0] - observation[0])
+        + (prev_observation[1] - observation[1])
+        * (prev_observation[1] - observation[1])
+    )
     return dist_travel
 
 
-def get_row_to_store(prev_observation, real_agent_action, env_agent_action, human_action, observation, reward):
+def get_row_to_store(
+    prev_observation,
+    real_agent_action,
+    env_agent_action,
+    human_action,
+    observation,
+    reward,
+):
     # constructs a row to add in a dataframe
-    return {'prev_observation': prev_observation, 'real_agent_action': real_agent_action,
-            'env_agent_action': env_agent_action, 'human_action': human_action, 'observation': observation,
-            'reward': reward}
+    return {
+        "prev_observation": prev_observation,
+        "real_agent_action": real_agent_action,
+        "env_agent_action": env_agent_action,
+        "human_action": human_action,
+        "observation": observation,
+        "reward": reward,
+    }
     # return {"ball_pos_x": prev_observation[0], "ball_pos_y": prev_observation[1],
     #         "ball_vel_x": prev_observation[2], "ball_vel_y": prev_observation[3],
     #         "tray_rot_x": prev_observation[4], "tray_rot_y": prev_observation[5],
@@ -46,8 +73,17 @@ def get_env_action(agent_action, discrete):
     return tmp_agent_action
 
 
-def print_logs(verbose, test_model, total_steps, game, best_score, running_reward, avg_length, log_interval,
-               avg_ep_duration):
+def print_logs(
+    verbose,
+    test_model,
+    total_steps,
+    game,
+    best_score,
+    running_reward,
+    avg_length,
+    log_interval,
+    avg_ep_duration,
+):
     """print logs during training"""
     if verbose:
         if not test_model:
@@ -55,10 +91,19 @@ def print_logs(verbose, test_model, total_steps, game, best_score, running_rewar
                 avg_length = int(avg_length / log_interval)
                 log_reward = int((running_reward / log_interval))
 
-                print('Episode {}\tTotal timesteps {}\tavg length: {}\tTotal reward(last {} episodes): {}\tBest '
-                      'Score: {}\tavg '
-                      'episode duration: {}'.format(game, total_steps, avg_length, log_interval, log_reward, best_score,
-                                                    timedelta(seconds=avg_ep_duration)))
+                print(
+                    "Episode {}\tTotal timesteps {}\tavg length: {}\tTotal reward(last {} episodes): {}\tBest "
+                    "Score: {}\tavg "
+                    "episode duration: {}".format(
+                        game,
+                        total_steps,
+                        avg_length,
+                        log_interval,
+                        log_reward,
+                        best_score,
+                        timedelta(seconds=avg_ep_duration),
+                    )
+                )
                 running_reward = 0
                 avg_length = 0
             return running_reward, avg_length
@@ -66,8 +111,11 @@ def print_logs(verbose, test_model, total_steps, game, best_score, running_rewar
 
 def test_print_logs(avg_score, avg_length, best_score, duration):
     """print logs during testing"""
-    print('Avg Score: {}\tAvg length: {}\tBest Score: {}\tTest duration: {}'.format(avg_score, avg_length, best_score,
-                                                                                    timedelta(seconds=duration)))
+    print(
+        "Avg Score: {}\tAvg length: {}\tBest Score: {}\tTest duration: {}".format(
+            avg_score, avg_length, best_score, timedelta(seconds=duration)
+        )
+    )
 
 
 def get_agent_only_action(agent_action):
