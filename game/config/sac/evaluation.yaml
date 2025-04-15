@@ -9,8 +9,7 @@ game:
     verbose: True # Used for logging
     save: True # Save models and logs
     human_assist: True
-    human_only: True
-    two_humans: False
+    human_only: False
 
     # input speed as translated by the game
     human_speed: 50
@@ -19,6 +18,33 @@ game:
 
     # position of the goal on the board
     goal: "left_down" # "left_down" "left_up" "right_down"
+
+SAC:
+  # SAC parameters
+  # NOTE: Only discrete SAC is compatible with the game so far
+  discrete: True
+  layer1_size: 32   # Number of variables in hidden layer
+  layer2_size: 32   # Number of variables in hidden layer
+  batch_size: 256
+  gamma: 0.99  # discount factor
+  tau: 0.005
+  alpha: 0.0003
+  beta: 0.0003
+  target_entropy_ratio: 0.4
+  model_name: no_tl_participant
+  # Type of reward function
+  # Currently three reward functions are implemented
+  # The implementation and the description are in the game/rewards.py file
+  # Choose on the the following: Shafti, Distance, Timeout
+  freeze_agent: False
+  reward_function: Shafti
+  chkpt: rl_models/saved_models/
+  load_checkpoint: True
+  load_file: rl_models/initial/
+
+  freeze_second_agent: False
+  load_second_agent: False
+  load_second_file: None
 
 
 Experiment:
@@ -35,9 +61,9 @@ Experiment:
   # max_games_mode: Experiment iterates over games. Each game has a fixed max duration in seconds.
   # max_interactions_mode: Experiment iterates over steps. Each game has a fixed max duration in seconds.
   ################################################################################################
-  mode: human   # Choose max_games_mode or max_interactions_mode
+  mode: eval   # Choose max_games_mode or max_interactions_mode
 
-  human:
+  eval:
     max_blocks: 1  # max training games per experiment
     games_per_block: 10
     max_duration: 40  # max duration per game in seconds

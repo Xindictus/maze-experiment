@@ -1,5 +1,5 @@
 game:
-    discrete_input: True # True for Discrete or False for Continuous human input
+    discrete_input: False # True for Discrete or False for Continuous human input
 
     test_model: False # True if no training happens
     checkpoint_name: "sac_20201216_17-25-51" # Date and time of the experiments. Used loading the model created that date (if asked by the user)
@@ -8,9 +8,8 @@ game:
     agent_only: False # True if playing only the RL agent (no human-in-the-loop)
     verbose: True # Used for logging
     save: True # Save models and logs
-    human_assist: True
+    human_assist: False
     human_only: False
-    two_humans: False
 
     # input speed as translated by the game
     human_speed: 50
@@ -36,16 +35,16 @@ SAC:
   # Type of reward function
   # Currently three reward functions are implemented
   # The implementation and the description are in the game/rewards.py file
-  # Choose on the the following: Shafti, Distance, Timeout
-  freeze_agent: False
+  # Choose on the the following: Shafti, Distance, Timeout\
+  freeze_agent: True
   reward_function: Shafti
-  chkpt: rl_models/Saved_models/
+  chkpt: rl_models/saved_models/
   load_checkpoint: True
-  load_file: rl_models/Initial/
+  load_file: rl_models/policy_transfer/
 
   freeze_second_agent: False
-  load_second_agent: False
-  load_second_file: None
+  load_second_agent: True
+  load_second_file: rl_models/initial/
 
 
 Experiment:
@@ -62,14 +61,11 @@ Experiment:
   # max_games_mode: Experiment iterates over games. Each game has a fixed max duration in seconds.
   # max_interactions_mode: Experiment iterates over steps. Each game has a fixed max duration in seconds.
   ################################################################################################
-  mode: no_tl   # Choose max_games_mode or max_interactions_mode
+  mode: no_tl_two_agents   # Choose max_games_mode or max_interactions_mode
 
-  no_tl:
+  no_tl_two_agents:
     max_blocks: 6  # max training games per experiment
-    games_per_block: 5
-    test_block: True
-    training_block: True
-    extra_test_block: True
+    games_per_block: 10
     max_duration: 40  # max duration per game in seconds
     buffer_memory_size: 3500
     action_duration: 0.2 # Time duration in sec between consecutive RL agent actions
