@@ -1,26 +1,14 @@
-# Virtual environment
-import argparse
-import os
 import sys
 import time
 from datetime import timedelta
 from pathlib import Path
 
-import torch
 from prettytable import PrettyTable
 
-# Experiment
-from game.experiment import Experiment
-from game.utils import get_config
-from maze3D_new.Maze3DEnvRemote import Maze3D as Maze3D_v2
-
-# RL modules
+from game.experiment.engine import ExperimentEngine
+from maze3D_new.Maze3DEnvRemote import Maze3D
 from rl_models.utils import get_sac_agent
 from utils.logger import Logger
-
-# from maze3D_new.assets import *
-# from maze3D_new.utils import save_logs_and_plot
-
 
 logger = Logger().get_logger()
 
@@ -30,64 +18,6 @@ The code of this work is based on the following github repos:
 https://github.com/kengz/SLM-Lab
 https://github.com/EveLIn3/Discrete_SAC_LunarLander/blob/master/sac_discrete.py
 """
-
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="")
-    parser.add_argument("--participant", type=str, default="test")
-    parser.add_argument("--seed", type=int, default=4213)
-    parser.add_argument("--scale-obs", type=int, default=0)
-    parser.add_argument("--buffer-size", type=int, default=3500)
-    parser.add_argument("--actor-lr", type=float, default=0.0003)
-    parser.add_argument("--critic-lr", type=float, default=0.0003)
-    parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument("--tau", type=float, default=0.005)
-    parser.add_argument("--alpha", type=float, default=0.05)
-    parser.add_argument("--auto-alpha", action="store_true", default=False)
-    parser.add_argument("--alpha-lr", type=float, default=0.001)
-    parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--hidden-size", type=int, default=[32, 32])
-    parser.add_argument(
-        "--hidden-sizes", type=int, nargs="*", default=[32, 32]
-    )
-    parser.add_argument("--logdir", type=str, default="log")
-    parser.add_argument("--num-actions", type=int, default=3)
-    parser.add_argument("--agent-type", type=str, default="basesac")
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda" if torch.cuda.is_available() else "cpu",
-    )
-
-    parser.add_argument("--avg-q", action="store_true", default=False)
-    parser.add_argument("--clip-q", action="store_true", default=False)
-    parser.add_argument("--clip-q-epsilon", type=float, default=0.5)
-    parser.add_argument(
-        "--entropy-penalty", action="store_true", default=False
-    )
-
-    parser.add_argument("--entropy-penalty-beta", type=float, default=0.5)
-
-    parser.add_argument(
-        "--buffer-path-1",
-        type=str,
-        default="game/Saved_Buffers/Buffer_Cris.npy",
-    )
-    parser.add_argument(
-        "--buffer-path-2",
-        type=str,
-        default="game/Saved_Buffers/Buffer_Koutris.npy",
-    )
-    parser.add_argument("--buffer-path-3", type=str, default=None)
-
-    parser.add_argument(
-        "--Load-Expert-Buffers", action="store_true", default=False
-    )
-
-    parser.add_argument("--load-buffer", action="store_true", default=False)
-
-    return parser.parse_args()
 
 
 def print_setting(agent, x):
@@ -164,42 +94,13 @@ def check_save_dir(
     return f"{str(candidate)}/"
 
 
-def check_save_dir2(checkpoint_dir: str = None, participant_name: str = None):
-    if not os.path.isdir(checkpoint_dir):
-        os.mkdir(checkpoint_dir)
-
-    if not os.path.isdir(os.path.join(checkpoint_dir, participant_name)):
-        os.mkdir(os.path.join(checkpoint_dir, participant_name))
-        checkpoint_dir = os.path.join(checkpoint_dir, participant_name) + "/"
-    else:
-        c = 1
-        while os.path.isdir(
-            os.path.join(checkpoint_dir, participant_name + str(c))
-        ):
-            c += 1
-        os.mkdir(os.path.join(checkpoint_dir, participant_name + str(c)))
-        checkpoint_dir = (
-            os.path.join(checkpoint_dir, participant_name + str(c)) + "/"
-        )
-
-    config["SAC"]["chkpt"] = checkpoint_dir
-    return config
-
-
-def main(argv):
-    args = get_args()
-    # get configuration
-    print("IM trying to get this config")
-    print(args.config)
-
-    config = get_config(args.config)
-
-    print("Config loaded", config)
-
-    # creating environment
-    maze = Maze3D_v2(config_file=args.config)
+def run_experiment(args, config):
+    # Initialize environment
+    maze = Maze3D(config)
     loop = config["Experiment"]["mode"]
+
     if loop != "human":
+        # TODO
         config = check_save_dir(config, args.participant)
         print_array = PrettyTable()
         if args.agent_type == "basesac":
@@ -225,7 +126,7 @@ def main(argv):
     else:
         agent = None
         second_agent = None
-    experiment = Experiment(
+    experiment = ExperimentEngine(
         maze,
         agent,
         config=config,
@@ -264,10 +165,3 @@ def main(argv):
     )
 
     print("Total Experiment time: {}".format(experiment_duration))
-
-    return
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
-    exit(0)

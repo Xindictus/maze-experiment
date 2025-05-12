@@ -32,6 +32,7 @@ dependencies = [
 [tool.black]
 # Match Flake8's default
 line-length = 79
+preview = true
 
 [tool.isort]
 # Match black's default
@@ -44,7 +45,7 @@ line-length = 79
 # W: warnings
 # I: isort
 select = ["E", "F", "W", "I"]
-ignore = []
+ignore = ["E501"]
 
 [dependency-groups]
 dev = [

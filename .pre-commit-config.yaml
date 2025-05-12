@@ -3,12 +3,18 @@ repos:
     rev: 23.1.0
     hooks:
       - id: black
+        # only runs on staged *.py files
+        files: \\.py$
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.0
     hooks:
       - id: ruff
         args: ["--fix"]
+        # only runs on staged *.py files
+        files: \\.py$
   - repo: https://github.com/PyCQA/isort
     rev: 5.12.0
     hooks:
       - id: isort
+        # only runs on staged *.py files
+        files: \\.py$

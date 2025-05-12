@@ -15,11 +15,7 @@ from pympler.tracker import SummaryTracker
 from tqdm import tqdm
 
 # Game utility file
-from game.utils import (
-    get_agent_only_action,
-    get_distance_traveled,
-    get_env_action,
-)
+from game.utils import get_agent_only_action, get_distance_traveled, get_env_action
 
 
 def load_csv(file_path):
@@ -110,7 +106,6 @@ class Experiment:
         self.duration_pause_total = 0
 
     def save_pickle(self, pt_name, data, baseline=False, game_mode="train"):
-
         name_of_file = (
             self.participant_name
             + "_"
@@ -182,7 +177,6 @@ class Experiment:
                 pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def mz_experiment(self, participant_name):
-
         train_block_metrics_dict = {}
         test_block_metrics_dict = {}
         # self.maze_game_random_agent(0,10)
@@ -331,7 +325,6 @@ class Experiment:
         block_metrics_dict = {}
         # self.maze_game_random_agent(0,10)
         for i_block in range(self.max_blocks):
-
             block_metrics_dict["block_" + str(i_block)] = {}
             block_metrics_dict = self.maze_only_agent(
                 block_metrics_dict,
@@ -392,8 +385,12 @@ class Experiment:
             is_on_pause = True
             while is_on_pause:
                 print("Game Reseting")
-                prev_observation, setting_up_duration, is_on_pause = (
-                    self.env.reset(game_mode)
+                (
+                    prev_observation,
+                    setting_up_duration,
+                    is_on_pause,
+                ) = self.env.reset(
+                    game_mode
                 )  # stores the state of the environment
                 norm_prev_observation = self.normalize_state(prev_observation)
             timed_out = False  # used to check if we hit the maximum train_game_number duration
@@ -621,8 +618,12 @@ class Experiment:
             is_on_pause = True
             while is_on_pause:
                 print("Game Reseting")
-                prev_observation, setting_up_duration, is_on_pause = (
-                    self.env.reset(game_mode)
+                (
+                    prev_observation,
+                    setting_up_duration,
+                    is_on_pause,
+                ) = self.env.reset(
+                    game_mode
                 )  # stores the state of the environment
                 norm_prev_observation = self.normalize_state(prev_observation)
             timed_out = False  # used to check if we hit the maximum train_game_number duration
@@ -656,10 +657,11 @@ class Experiment:
                 env_agent_action, real_agent_action = self.get_agent_action(
                     norm_prev_observation, "agent", game_mode
                 )
-                env_sec_agent_action, real_sec_agent_action = (
-                    self.get_agent_action(
-                        norm_prev_observation, "second_agent", game_mode
-                    )
+                (
+                    env_sec_agent_action,
+                    real_sec_agent_action,
+                ) = self.get_agent_action(
+                    norm_prev_observation, "second_agent", game_mode
                 )
 
                 # check if the game has timed out
@@ -873,9 +875,11 @@ class Experiment:
             is_on_pause = True
             while is_on_pause:
                 print("Game Reseting")
-                prev_observation, setting_up_duration, is_on_pause = (
-                    self.env.reset()
-                )  # stores the state of the environment
+                (
+                    prev_observation,
+                    setting_up_duration,
+                    is_on_pause,
+                ) = self.env.reset()  # stores the state of the environment
                 norm_prev_observation = self.normalize_state(prev_observation)
                 # for i in range(5):
                 #     vector.append(prev_observation)
@@ -1107,9 +1111,11 @@ class Experiment:
             is_on_pause = True
             while is_on_pause:
                 print("Game Reseting")
-                prev_observation, setting_up_duration, is_on_pause = (
-                    self.env.reset(game_mode)
-                )
+                (
+                    prev_observation,
+                    setting_up_duration,
+                    is_on_pause,
+                ) = self.env.reset(game_mode)
                 # norm_prev_observation = self.normalize_state(prev_observation)
             timed_out = False
             game_reward = 200
@@ -1402,7 +1408,6 @@ class Experiment:
         return env_agent_action, agent_action
 
     def compute_agent_action(self, observation, status):
-
         if status == "agent":
             agent_action = self.agent.actor.sample_act(observation)
             return agent_action
@@ -1429,7 +1434,6 @@ class Experiment:
         #    self.update_cycles = -1 #int(self.config['Experiment'][self.mode]['total_update_cycles']/(self.config['Experiment'][self.mode]['max_blocks'] - 1))
 
         if self.update_cycles > 0:
-
             grad_updates_duration = self.grad_updates(
                 self.update_cycles, block_number
             )
@@ -1460,9 +1464,12 @@ class Experiment:
             # print a completion bar in the terminal
             for cycle_i in tqdm(range(update_cycles), file=sys.stdout):
                 if not self.config["SAC"]["freeze_agent"]:
-                    policy_loss, q1_loss, q2_loss, alpha_temp = (
-                        self.agent.learn(block_number)
-                    )
+                    (
+                        policy_loss,
+                        q1_loss,
+                        q2_loss,
+                        alpha_temp,
+                    ) = self.agent.learn(block_number)
                     if cycle_i % 100 == 0:
                         print(
                             "Cycle:",
@@ -1479,9 +1486,12 @@ class Experiment:
 
                 if self.mode == "no_tl_two_agents":
                     if not self.config["SAC"]["freeze_second_agent"]:
-                        policy_loss, q1_loss, q2_loss, alpha_temp = (
-                            self.second_agent.learn(block_number)
-                        )
+                        (
+                            policy_loss,
+                            q1_loss,
+                            q2_loss,
+                            alpha_temp,
+                        ) = self.second_agent.learn(block_number)
 
                 # update the target networks
                 self.agent.soft_update_target()
