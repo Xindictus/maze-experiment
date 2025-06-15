@@ -9,21 +9,23 @@ class Logger(metaclass=Singleton):
     """_summary_
 
     Args:
-        metaclass (_type_, optional): _description_. Defaults to Singleton.
+        metaclass (_type_, optional): Defaults to Singleton.
 
     Returns:
-        _type_: _description_
+        _type_: Logger
     """
 
     _logger: logging.Logger = None
     _no_fd_logger: str = "Moving on without a file logger"
 
-    def __init__(self, name: str = "maze-3d", log_lvl: int = logging.DEBUG):
+    def __init__(
+        self, name: str = "maze-3d", log_lvl: int = logging.DEBUG
+    ) -> None:
         """_summary_
 
         Args:
-            name (str, optional): _description_. Defaults to 'maze-3d'.
-            log_lvl (int, optional): _description_. Defaults to logging.DEBUG.
+            name (str, optional): Logger name. Defaults to 'maze-3d'.
+            log_lvl (int, optional): Logger level. Defaults to logging.DEBUG.
         """
         if Logger._logger is None:
             # Grab app settings
@@ -67,6 +69,6 @@ class Logger(metaclass=Singleton):
         """_summary_
 
         Returns:
-            logging.Logger: _description_
+            logging.Logger: Returns instantiated logger
         """
         return self._logger

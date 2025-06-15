@@ -47,7 +47,7 @@ The experiment has 2 main modes
     In this mode Two soft actor critic agents collaborate with each other.
     The base command is:
     ```
-    python sac_maze3d_train.py --config game\config\config_sac_No_TL_Two_agents.yaml --participant  <name of participant>
+    python sac_maze3d_train.py --config game\config\config_sac_No_TL_Two_agents.yaml --participant <name of participant>
     ```
     Where 
     1. --config -> The file where the setting of the Humman xs Ai experiment [the argument requires a path to config_sac_No_TL_Two_agents.yaml file]
