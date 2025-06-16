@@ -24,5 +24,4 @@ repos:
         name: Run testcases
         entry: pytest
         language: system
-        types: [python]
         pass_filenames: false
