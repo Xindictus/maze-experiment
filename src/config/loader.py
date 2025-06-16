@@ -5,7 +5,7 @@ import typer
 
 from typing import Type
 
-from utils.logger import Logger
+from src.utils.logger import Logger
 
 logger = Logger().get_logger()
 

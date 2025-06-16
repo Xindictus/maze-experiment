@@ -1,4 +1,4 @@
-from config.gui_base import GUIBaseConfig
+from src.config.gui_base import GUIBaseConfig
 
 
 class DefaultConfig(GUIBaseConfig):

@@ -1,6 +1,6 @@
 from pydantic import Field
 
-from config.game_base import GameBaseConfig
+from src.config.game_base import GameBaseConfig
 
 
 class DefaultConfig(GameBaseConfig):

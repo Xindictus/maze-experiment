@@ -1,7 +1,7 @@
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
 
-from config.reward_strategy import RewardStrategy
+from src.config.reward_strategy import RewardStrategy
 
 
 class SACBaseConfig(BaseModel):
@@ -15,7 +15,7 @@ class SACBaseConfig(BaseModel):
     beta: float = Field(default=0.0003, ge=0, le=1)
 
     # Directory where agent checkpoints will be saved during training
-    chkpt: str = Field(default=Path("rl_models/saved_models/"))
+    chkpt: Path = Field(default=Path("rl_models/saved_models/"))
 
     # Action input
     discrete: bool = Field(default=True)
@@ -42,7 +42,7 @@ class SACBaseConfig(BaseModel):
     load_checkpoint: bool = Field(default=True)
 
     # Path to the checkpoint file for the main agent
-    load_file: str = Field(default=Path("rl_models/initial/"))
+    load_file: Path = Field(default=Path("rl_models/initial/"))
 
     # Whether to initialize and load a second agent
     load_second_agent: bool = Field(default=False)
@@ -51,7 +51,7 @@ class SACBaseConfig(BaseModel):
     load_second_file: str | None = Field(default=None)
 
     # Identifier for saving model-related artifacts (used in logs, filenames)
-    model_name: str = Field(default=Path("no_tl_participant"))
+    model_name: Path = Field(default=Path("no_tl_participant"))
 
     # Scalar to adjust the automatic entropy tuning target
     target_entropy_ratio: float = Field(default=0.4, ge=0, le=1)

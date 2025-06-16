@@ -14,7 +14,7 @@ class GameBaseConfig(BaseModel):
     - Date and time of the experiments.
     - Used loading the model created that date (if asked by the user)
     """
-    checkpoint_name: str = Field(
+    checkpoint_name: Path = Field(
         default=Path(f'{datetime.now().strftime("%Y%m%d%H%M%S")}')
     )
 

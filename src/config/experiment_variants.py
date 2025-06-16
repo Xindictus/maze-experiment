@@ -1,4 +1,4 @@
-from config.experiment_base import ExperimentBaseConfig
+from src.config.experiment_base import ExperimentBaseConfig
 
 
 class DefaultConfig(ExperimentBaseConfig):

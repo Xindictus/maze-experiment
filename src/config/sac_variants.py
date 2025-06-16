@@ -1,7 +1,7 @@
 from pathlib import Path
 from pydantic import Field
 
-from config.sac_base import SACBaseConfig
+from src.config.sac_base import SACBaseConfig
 
 
 class DefaultConfig(SACBaseConfig):
@@ -13,13 +13,13 @@ class AgentAgentConfig(SACBaseConfig):
     freeze_agent: bool = Field(default=True)
 
     # Path to the checkpoint file for the main agent
-    load_file: str = Field(default=Path("rl_models/policy_transfer/"))
+    load_file: Path = Field(default=Path("rl_models/policy_transfer/"))
 
     # Whether to initialize and load a second agent
     load_second_agent: bool = Field(default=True)
 
     # Optional path to checkpoint for the second agent
-    load_second_file: str = Field(default=Path("rl_models/initial/"))
+    load_second_file: Path = Field(default=Path("rl_models/initial/"))
 
 
 class AgentOnlyConfig(SACBaseConfig):
