@@ -1,10 +1,10 @@
 import json
 import math
+import yaml
+
 from datetime import timedelta
 from pathlib import Path
 from typing import Dict
-
-import yaml
 
 from utils.logger import Logger
 
@@ -146,8 +146,9 @@ def print_logs(
 def test_print_logs(avg_score, avg_length, best_score, duration):
     """print logs during testing"""
     print(
-        "Avg Score: {}\tAvg length: {}\tBest Score: {}\tTest duration: {}"
-        .format(avg_score, avg_length, best_score, timedelta(seconds=duration))
+        "Avg Score: {}\tAvg length: {}\tBest Score: {}\tTest duration: {}".format(
+            avg_score, avg_length, best_score, timedelta(seconds=duration)
+        )
     )
 
 

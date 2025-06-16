@@ -15,7 +15,11 @@ from pympler.tracker import SummaryTracker
 from tqdm import tqdm
 
 # Game utility file
-from game.utils import get_agent_only_action, get_distance_traveled, get_env_action
+from game.utils import (
+    get_agent_only_action,
+    get_distance_traveled,
+    get_env_action,
+)
 
 
 def load_csv(file_path):

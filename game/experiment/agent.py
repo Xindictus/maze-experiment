@@ -16,7 +16,7 @@ def get_agent_action(
     game_mode="train",
     block=None,
     use_ppr=False,
-    ppr_table=None
+    ppr_table=None,
 ):
     """
     Determines the agent action and returns both the environment-compatible

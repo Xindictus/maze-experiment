@@ -40,7 +40,10 @@ def parse_args():
 
     # SAC hyperparameters
     parser.add_argument(
-        "--alpha", type=float, default=0.05, help="Initial entropy coefficient"
+        "--alpha",
+        type=float,
+        default=0.05,
+        help="Initial entropy coefficient",
     )
     parser.add_argument(
         "--alpha-lr",

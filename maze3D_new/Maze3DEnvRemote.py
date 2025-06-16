@@ -32,9 +32,6 @@ def reward_function_timeout_penalty(
     if goal_reached and not timed_out:
         return 10
 
-    if timed_out:
-        return -1
-
     return -1
 
 
@@ -115,7 +112,7 @@ class Maze3D:
             except Exception as e:
                 print("ip host offline", e)
                 time.sleep(1)
-        print("I succseded here")
+        print("I succeeded here")
 
     def agent_ready(self):
         while True:
