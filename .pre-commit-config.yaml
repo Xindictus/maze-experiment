@@ -18,3 +18,11 @@ repos:
       - id: isort
         # only runs on staged *.py files
         files: \\.py$
+  - repo: local
+    hooks:
+      - id: pytest
+        name: Run testcases
+        entry: pytest
+        language: system
+        types: [python]
+        pass_filenames: false
