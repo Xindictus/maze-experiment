@@ -1,8 +1,8 @@
 import logging
 from datetime import datetime
 
-from utils.settings import Settings
-from utils.singleton import Singleton
+from src.utils.settings import Settings
+from src.utils.singleton import Singleton
 
 
 class Logger(metaclass=Singleton):

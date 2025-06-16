@@ -23,7 +23,9 @@ class Settings(BaseSettings):
         default_factory=lambda: str(Path(__file__).resolve().parent.parent)
     )
 
-    file_handler: bool = Field(False, env="FILE_HANDLER")
+    file_handler: bool = Field(
+        False, json_schema_extra={"env": "FILE_HANDLER"}
+    )
 
     def get_settings(self) -> Dict[str, any]:
         """_summary_
