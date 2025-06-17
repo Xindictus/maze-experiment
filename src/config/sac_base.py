@@ -2,6 +2,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
 
 from src.config.reward_strategy import RewardStrategy
+from src.config.validators import must_be_power_of_two
 
 
 class SACBaseConfig(BaseModel):
@@ -67,9 +68,7 @@ class SACBaseConfig(BaseModel):
     """
     reward_function: RewardStrategy = Field(default=RewardStrategy.SHAFTI)
 
-    @field_validator("batch_size", "layer1_size", "layer2_size")
-    @classmethod
-    def must_be_power_of_two(cls, v: int, info) -> int:
-        if (v & (v - 1)) != 0:
-            raise ValueError(f"[{info.field_name}]: Must be power of 2!")
-        return v
+    # Restrict values to power of 2
+    _check_power = field_validator("batch_size", "layer1_size", "layer2_size")(
+        must_be_power_of_two
+    )
