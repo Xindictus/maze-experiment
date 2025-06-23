@@ -66,7 +66,6 @@ class QMixer(nn.Module):
         )
 
     def _create_hypernet(self, input_dim: int, output_dim: int) -> nn.Module:
-
         hyper_layers = self.config.hypernet_layers
         match hyper_layers:
             case 1:
@@ -89,26 +88,60 @@ class QMixer(nn.Module):
         # - weight clipping
         # - dropout in hypernetworks
         # logger.debug(f"{tensor.detach().cpu().numpy()}")
-        bs = agent_qs.size(0)
+
+        # Store original batch size (episodes) before flattening for mixing
+        batch_size = agent_qs.size(0)
+
+        """
+        States has the shape [batch_size, episode_length, state_dim]
+
+        In our case, batch size is the number of games in each block (5) that
+        we are going to process in parallel as part of this training batch,
+        episode length is the number of timesteps per episode (40s for each
+        game, exchanging actions/states every 200ms, which equals to 200
+        timesteps) and finally state dimensionality, which is the output of
+        `normalize_state` (8,).
+
+        We are reshaping states, because networks expect 2D input instead
+        of our current 3D tensor.
+        """
         states = states.reshape(-1, self.state_dim)
+
+        # We need this for matrix multiplication with w1
         agent_qs = agent_qs.view(-1, 1, self.n_agents)
-        # First layer
-        # also enforcing monotonicity?
+
+        # ---------------- First layer ---------------- #
+
+        """
+        Generate the first layer mixing weights and biases
+        based on the global state.
+        """
+
+        # Monotonicity is enforced here.
         w1 = th.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
         w1 = w1.view(-1, self.n_agents, self.embed_dim)
         b1 = b1.view(-1, 1, self.embed_dim)
-        # elu activation
+
+        # ELU activation
         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
-        # Second layer
-        # also enforcing monotonicity?
+
+        # ---------------- Second layer ---------------- #
+
+        # Generating final-layer weights. Monotonicity is enforced again.
         w_final = th.abs(self.hyper_w_final(states))
+
+        # Reshaping to prepare for batched matrix multiplication.
         w_final = w_final.view(-1, self.embed_dim, 1)
+
         # State-dependent bias
         v = self.V(states).view(-1, 1, 1)
+
         # Compute final output
         y = th.bmm(hidden, w_final) + v
+
         # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-        # Qtot​(s,a)=fθ(Q1​,...,QN​)+V(s)
+        q_tot = y.view(batch_size, -1, 1)
+
+        # Qtot​(s,a)= fθ(Q1​, ..., QN​) + V(s)
         return q_tot
