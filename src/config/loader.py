@@ -1,7 +1,6 @@
 import importlib
 import inspect
 import re
-import typer
 
 from typing import Type
 
@@ -40,7 +39,7 @@ def flatten_overrides(pairs: list[str]) -> dict:
 
     for pair in pairs:
         if "=" not in pair:
-            raise typer.BadParameter(f"Invalid override format: '{pair}'")
+            raise ValueError(f"Invalid override format: '{pair}'")
         key, val = pair.split("=", 1)
         keys = key.split(".")
         d = result

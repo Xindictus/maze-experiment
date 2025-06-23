@@ -3,3 +3,4 @@ results/
 rl_models/saved_models/
 rl_models/result/
 .venv/
+.vscode/

@@ -1,5 +1,5 @@
 from rl_models.sac_discrete_agent import DiscreteSACAgent
-from utils.logger import Logger
+from src.utils.logger import Logger
 
 logger = Logger().get_logger()
 
