@@ -82,7 +82,7 @@ class QMixer(nn.Module):
                     f"Unsupported hypernet_layers: {hyper_layers}"
                 )
 
-    def forward(self, agent_qs, states):
+    def forward(self, agent_qs: th.Tensor, states: th.Tensor) -> th.Tensor:
         # TODO
         # - layer norm & batch norm
         # - weight clipping
@@ -105,10 +105,10 @@ class QMixer(nn.Module):
         We are reshaping states, because networks expect 2D input instead
         of our current 3D tensor.
         """
-        states = states.reshape(-1, self.state_dim)
+        states = states.reshape(-1, self.config.state_dim)
 
         # We need this for matrix multiplication with w1
-        agent_qs = agent_qs.view(-1, 1, self.n_agents)
+        agent_qs = agent_qs.view(-1, 1, self.config.n_agents)
 
         # ---------------- First layer ---------------- #
 
@@ -120,8 +120,8 @@ class QMixer(nn.Module):
         # Monotonicity is enforced here.
         w1 = th.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
-        w1 = w1.view(-1, self.n_agents, self.embed_dim)
-        b1 = b1.view(-1, 1, self.embed_dim)
+        w1 = w1.view(-1, self.config.n_agents, self.config.embed_dim)
+        b1 = b1.view(-1, 1, self.config.embed_dim)
 
         # ELU activation
         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
@@ -132,7 +132,7 @@ class QMixer(nn.Module):
         w_final = th.abs(self.hyper_w_final(states))
 
         # Reshaping to prepare for batched matrix multiplication.
-        w_final = w_final.view(-1, self.embed_dim, 1)
+        w_final = w_final.view(-1, self.config.embed_dim, 1)
 
         # State-dependent bias
         v = self.V(states).view(-1, 1, 1)
