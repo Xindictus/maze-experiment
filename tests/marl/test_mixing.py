@@ -60,13 +60,14 @@ def test_qmixer_constructor(layers):
     assert isinstance(mixer.V, nn.Sequential)
 
 
-def test_qmix_forward_output_shape():
+@pytest.mark.parametrize("layers", [1, 2])
+def test_qmix_forward_output_shape(layers):
     config = QmixBaseConfig(
         n_agents=2,
         state_shape=(8,),
         embed_dim=32,
         hypernet_embed=64,
-        hypernet_layers=1,
+        hypernet_layers=layers,
     )
 
     _, mixer = create_test_mixer(config)
@@ -80,5 +81,53 @@ def test_qmix_forward_output_shape():
     assert q_tot.shape == (5, 200, 1)
 
 
-def test_qmix_forward_output_monotonicity():
-    pass
+@pytest.mark.parametrize("layers", [1, 2])
+def test_qmix_forward_output_monotonicity(layers):
+    config = QmixBaseConfig(
+        n_agents=2,
+        state_shape=(8,),
+        embed_dim=32,
+        hypernet_embed=64,
+        hypernet_layers=layers,
+    )
+
+    _, mixer = create_test_mixer(config)
+
+    assert mixer.config.state_dim == 8
+
+    agent_qs, states = create_dummy_inputs()
+
+    base_q_tot = mixer(agent_qs, states)
+
+    assert torch.all(torch.isfinite(base_q_tot))
+    assert base_q_tot.ndim == 3
+
+    # Increase agent 0's Q-value slightly
+    agent_qs[:, :, 0] += 0.1
+    new_q_tot = mixer(agent_qs, states)
+
+    # Q_tot should increase or stay the same
+    assert (new_q_tot >= base_q_tot).all()
+
+
+@pytest.mark.parametrize("layers", [1, 2])
+def test_qmix_backward_pass(layers):
+    config = QmixBaseConfig(
+        n_agents=2,
+        state_shape=(8,),
+        embed_dim=32,
+        hypernet_embed=64,
+        hypernet_layers=layers,
+    )
+
+    _, mixer = create_test_mixer(config)
+
+    agent_qs, states = create_dummy_inputs()
+
+    q_tot = mixer(agent_qs, states)
+    loss = q_tot.sum()
+    loss.backward()
+
+    # Check that parameters received gradients
+    grads = [p.grad for p in mixer.parameters() if p.requires_grad]
+    assert all(g is not None for g in grads)
