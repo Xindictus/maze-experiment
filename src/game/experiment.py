@@ -1,58 +1,72 @@
 import numpy as np
+import torch as T
 
+from dataclasses import dataclass
+from pydantic import BaseModel
 from typing import List
 
+from src.marl.algos.common import Observation
 
+
+@dataclass
 class Experiment:
-    @staticmethod
-    def normalize_feature(feat: float, min_v: float, max_v: float) -> float:
+    _config: BaseModel
+    _global_obs: Observation = None
+
+    @property
+    def global_observation(self) -> np.ndarray:
+        if self._global_obs is None:
+            raise ValueError("Global observation not set.")
+        return self._global_obs.get_state()
+
+    @global_observation.setter
+    def global_observation(self, val: List[float]):
+        self._global_obs = Observation(
+            config=self._config,
+            normalized=self._normalize_global_state(val),
+            raw_input=val,
+        )
+
+    def _normalize_feature(
+        self, feat: float, min_v: float, max_v: float
+    ) -> float:
         # Normalize features to range [-1, 1]
         val = min(max(feat, min_v), max_v)
         return 2 * (val - min_v) / (max_v - min_v) - 1
 
-    @staticmethod
-    def normalize_state(observation: List[float]) -> np.ndarray:
+    def _normalize_global_state(self, observation: List[float]) -> np.ndarray:
         # Normalize observation features - 8 features expected
-
         norm_observation = [0] * len(observation)
 
-        # x,y from -2/2 to -1/1
-        norm_observation[0] = Experiment.normalize_feature(
-            observation[0], -2, 2
-        )
-        norm_observation[1] = Experiment.normalize_feature(
-            observation[1], -2, 2
-        )
+        # Ball x & y position from -2/2 to -1/1
+        norm_observation[0] = self._normalize_feature(observation[0], -2, 2)
+        norm_observation[1] = self._normalize_feature(observation[1], -2, 2)
 
-        # x,y velocity from -0/2 to 0/1
-        norm_observation[2] = Experiment.normalize_feature(
-            observation[2], -4, 4
-        )
-        norm_observation[3] = Experiment.normalize_feature(
-            observation[3], -4, 4
-        )
+        # Ball x & y velocity from -0/2 to 0/1
+        norm_observation[2] = self._normalize_feature(observation[2], -4, 4)
+        norm_observation[3] = self._normalize_feature(observation[3], -4, 4)
 
-        # f,t from -30/30 to -1/1
-        norm_observation[4] = Experiment.normalize_feature(
-            observation[4], -30, 30
-        )
-        norm_observation[5] = Experiment.normalize_feature(
-            observation[5], -30, 30
-        )
+        # Board angle f & t from -30/30 to -1/1
+        norm_observation[4] = self._normalize_feature(observation[4], -30, 30)
+        norm_observation[5] = self._normalize_feature(observation[5], -30, 30)
 
-        # # f,t velocity from -1/1 to -1/1
-        norm_observation[6] = Experiment.normalize_feature(
+        # Board f & t velocity from -1/1 to -1/1
+        norm_observation[6] = self._normalize_feature(
             observation[6], -1.9, 1.9
         )
-        norm_observation[7] = Experiment.normalize_feature(
+        norm_observation[7] = self._normalize_feature(
             observation[7], -1.9, 1.9
         )
 
         return np.clip(norm_observation, -1.3, 1.3)
-        # for i in range(len(norm_observation)):
-        #     if norm_observation[i] > 1.3:
-        #         norm_observation[i] = 1.3
-        #     elif norm_observation[i] < -1.3:
-        #         norm_observation[i] = -1.3
 
-        # return np.array(norm_observation)
+    def get_local_obs(self, agent_id: int) -> np.ndarray:
+        if agent_id == 0:
+            return self.global_observation.slice([0, 2, 4, 6])
+        elif agent_id == 1:
+            return self.global_observation.slice([1, 3, 5, 7])
+        else:
+            raise ValueError(f"Invalid agent ID: {agent_id}")
+
+    def get_global_state_T(self) -> T.Tensor:
+        return self._global_obs.to_tensor()
