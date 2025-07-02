@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import pytest
 
-from src.marl.mixing.qmix import QMixer
 from src.config.qmix_base import QmixBaseConfig
+from src.marl.mixing.qmix import QMixer
 
 
 def create_test_mixer(config: QmixBaseConfig = None) -> QMixer:

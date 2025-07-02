@@ -1,4 +1,4 @@
-import torch as th
+import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -82,7 +82,7 @@ class QMixer(nn.Module):
                     f"Unsupported hypernet_layers: {hyper_layers}"
                 )
 
-    def forward(self, agent_qs: th.Tensor, states: th.Tensor) -> th.Tensor:
+    def forward(self, agent_qs: T.Tensor, states: T.Tensor) -> T.Tensor:
         # TODO
         # - layer norm & batch norm
         # - weight clipping
@@ -118,18 +118,18 @@ class QMixer(nn.Module):
         """
 
         # Monotonicity is enforced here.
-        w1 = th.abs(self.hyper_w_1(states))
+        w1 = T.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
         w1 = w1.view(-1, self.config.n_agents, self.config.embed_dim)
         b1 = b1.view(-1, 1, self.config.embed_dim)
 
         # ELU activation
-        hidden = F.elu(th.bmm(agent_qs, w1) + b1)
+        hidden = F.elu(T.bmm(agent_qs, w1) + b1)
 
         # ---------------- Second layer ---------------- #
 
         # Generating final-layer weights. Monotonicity is enforced again.
-        w_final = th.abs(self.hyper_w_final(states))
+        w_final = T.abs(self.hyper_w_final(states))
 
         # Reshaping to prepare for batched matrix multiplication.
         w_final = w_final.view(-1, self.config.embed_dim, 1)
@@ -138,7 +138,7 @@ class QMixer(nn.Module):
         v = self.V(states).view(-1, 1, 1)
 
         # Compute final output
-        y = th.bmm(hidden, w_final) + v
+        y = T.bmm(hidden, w_final) + v
 
         # Reshape and return
         q_tot = y.view(batch_size, -1, 1)
