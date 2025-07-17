@@ -9,13 +9,13 @@ class QmixBaseConfig(BaseModel):
     device: str = Field(default="cuda")
 
     # Final output dimension of the mixer hidden layer
-    embed_dim: int = Field(..., gt=0)
+    embed_dim: int = Field(32, gt=0)
 
     # List of hidden layer sizes for the agent network (e.g., [64, 64])
     hidden_dims: List[int] = Field(default_factory=lambda: [64, 32])
 
     # Hidden layer size in the hypernet (if 2-layer MLP is used)
-    hypernet_embed: int = Field(..., gt=0)
+    hypernet_embed: int = Field(64, gt=0)
 
     """
     Number of layers in each hypernetwork:
@@ -34,7 +34,7 @@ class QmixBaseConfig(BaseModel):
     n_agents: int = Field(default=2, ge=2, le=100)
 
     #  Shape of the global state tensor
-    state_shape: Tuple[int, ...] = Field(..., min_length=1)
+    state_shape: Tuple[int, ...] = Field(default=(4,), min_length=1)
 
     # Restrict values to power of 2
     # TODO: hidden dim

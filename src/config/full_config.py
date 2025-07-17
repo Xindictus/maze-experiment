@@ -2,9 +2,11 @@ from pydantic import BaseModel
 
 from src.config.experiment_base import ExperimentBaseConfig
 from src.config.game_base import GameBaseConfig
-from src.config.loader import discover_variants
-from src.config.sac_base import SACBaseConfig
 from src.config.gui_base import GUIBaseConfig
+from src.config.loader import discover_variants
+from src.config.network_config import NetworkConfig
+from src.config.sac_base import SACBaseConfig
+from src.config.qmix_base import QmixBaseConfig
 from src.utils.logger import Logger
 
 logger = Logger().get_logger()
@@ -19,9 +21,11 @@ SAC_VARIANTS = discover_variants("src.config.sac_variants", SACBaseConfig)
 
 
 class FullConfig(BaseModel):
+    experiment: ExperimentBaseConfig
     game: GameBaseConfig
     gui: GUIBaseConfig
-    experiment: ExperimentBaseConfig
+    network: NetworkConfig
+    qmix: QmixBaseConfig
     sac: SACBaseConfig
 
 
@@ -42,39 +46,45 @@ def build_config(
 
     # Overrides
     overrides = overrides or {}
+    exp_over = overrides.get("experiment", {})
     game_over = overrides.get("game", {})
     gui_over = overrides.get("gui", {})
-    exp_over = overrides.get("experiment", {})
+    net_over = overrides.get("network", {})
     sac_over = overrides.get("sac", {})
+    qmix_over = overrides.get("qmix", {})
 
     # Get appropriate config dataclasses
+    experiment_cls = EXPERIMENT_VARIANTS[experiment]
     game_cls = GAME_VARIANTS[game]
     gui_cls = GUI_VARIANTS[gui]
-    experiment_cls = EXPERIMENT_VARIANTS[experiment]
     sac_cls = SAC_VARIANTS[sac]
 
     # Get config dumps
+    experiment_base = experiment_cls().model_dump()
     game_base = game_cls().model_dump()
     gui_base = gui_cls().model_dump()
-    experiment_base = experiment_cls().model_dump()
     sac_base = sac_cls().model_dump()
 
     # Merge base configs with overrides
+    merged_experiment = {**experiment_base, **exp_over}
     merged_game = {**game_base, **game_over}
     merged_gui = {**gui_base, **gui_over}
-    merged_experiment = {**experiment_base, **exp_over}
     merged_sac = {**sac_base, **sac_over}
 
+    exp_config = experiment_cls.model_validate(merged_experiment)
     game_config = game_cls.model_validate(merged_game)
     gui_config = gui_cls.model_validate(merged_gui)
-    exp_config = experiment_cls.model_validate(merged_experiment)
+    net_config = NetworkConfig(**net_over)
     sac_config = sac_cls.model_validate(merged_sac)
+    qmix_config = QmixBaseConfig(**qmix_over)
 
     config = FullConfig(
+        experiment=exp_config,
         game=game_config,
         gui=gui_config,
-        experiment=exp_config,
+        network=net_config,
         sac=sac_config,
+        qmix=qmix_config,
     )
 
     return config
