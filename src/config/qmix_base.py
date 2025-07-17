@@ -1,6 +1,7 @@
+from typing import List, Literal, Tuple
+
 from numpy import prod
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import List, Literal, Tuple
 
 from src.config.validators import must_be_power_of_two
 

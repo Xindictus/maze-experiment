@@ -1,10 +1,10 @@
+from abc import ABC
+
 import torch as T
 import torch.nn as nn
 
-from abc import ABC
-
-from src.marl.algos.common.agent_network import AgentNetwork
 from src.config.qmix_base import QmixBaseConfig
+from src.marl.algos.common.agent_network import AgentNetwork
 
 
 class QmixNetwork(AgentNetwork, ABC):

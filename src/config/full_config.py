@@ -5,8 +5,8 @@ from src.config.game_base import GameBaseConfig
 from src.config.gui_base import GUIBaseConfig
 from src.config.loader import discover_variants
 from src.config.network_config import NetworkConfig
-from src.config.sac_base import SACBaseConfig
 from src.config.qmix_base import QmixBaseConfig
+from src.config.sac_base import SACBaseConfig
 from src.utils.logger import Logger
 
 logger = Logger().get_logger()

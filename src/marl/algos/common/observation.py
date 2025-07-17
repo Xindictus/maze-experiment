@@ -1,9 +1,9 @@
-import torch as T
-import numpy as np
-
 from dataclasses import dataclass
-from pydantic import BaseModel
 from typing import List, Optional
+
+import numpy as np
+import torch as T
+from pydantic import BaseModel
 
 
 @dataclass

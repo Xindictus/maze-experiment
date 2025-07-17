@@ -1,7 +1,7 @@
 import json
+from typing import Annotated, List
 
 from cyclopts import App, Parameter
-from typing import Annotated, List
 
 from src.config.full_config import build_config
 from src.config.loader import flatten_overrides

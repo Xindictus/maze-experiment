@@ -1,10 +1,10 @@
-import torch as T
-
 from abc import ABC, abstractmethod
+
+import torch as T
 from pydantic import BaseModel
 
-from .agent_network import AgentNetwork
 from .action_space import ActionSpace
+from .agent_network import AgentNetwork
 from .observation import Observation
 
 

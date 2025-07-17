@@ -1,7 +1,7 @@
+from abc import ABC, abstractmethod
+
 import torch as T
 import torch.nn as nn
-
-from abc import ABC, abstractmethod
 from pydantic import BaseModel
 
 
