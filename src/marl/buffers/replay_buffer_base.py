@@ -1,5 +1,8 @@
+import random
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
+
+import numpy as np
 
 
 class ReplayBufferBase(ABC):
@@ -12,10 +15,20 @@ class ReplayBufferBase(ABC):
         # Adds a single transition state to the buffer.
         raise NotImplementedError
 
-    @abstractmethod
-    def sample(self, batch_size: int) -> Dict[str, Any]:
-        # Samples a batch of transitions.
-        raise NotImplementedError
+    def sample(self, batch_size: int) -> Dict[str, np.ndarray]:
+        """
+        Samples a batch of full episodes.
+        """
+        if batch_size > len(self):
+            raise ValueError(
+                f"Batch size [{batch_size}] larger "
+                + f"than buffer size [{len(self)}]"
+            )
+        indices = self._sample_indices(batch_size=batch_size)
+        return self._encode_sample(indices)
+
+    def _sample_indices(self, batch_size: int) -> List[int]:
+        return random.choices(range(len(self)), k=batch_size)
 
     def __len__(self) -> int:
         # Returns the current size of the buffer.

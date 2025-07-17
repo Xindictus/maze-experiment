@@ -1,4 +1,3 @@
-import random
 from typing import Any, Dict, List
 
 import numpy as np
@@ -19,18 +18,6 @@ class StandardReplayBuffer(ReplayBufferBase):
             self.storage[self.next_idx] = transition
 
         self.next_idx = (self.next_idx + 1) % self.mem_size
-
-    def sample(self, batch_size: int) -> Dict[str, np.ndarray]:
-        if batch_size > len(self):
-            raise ValueError(
-                f"Batch size [{batch_size}] larger "
-                + f"than buffer size [{len(self)}]"
-            )
-        indices = self._sample_indices(batch_size=batch_size)
-        return self._encode_sample(indices)
-
-    def _sample_indices(self, batch_size: int) -> List[int]:
-        return random.choices(range(len(self)), k=batch_size)
 
     def _encode_sample(self, indices: List[int]) -> Dict[str, np.ndarray]:
         actions, dones, next_obses, obses, rewards = [], [], [], [], []
