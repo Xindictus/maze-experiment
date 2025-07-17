@@ -4,20 +4,20 @@ repos:
     hooks:
       - id: black
         # only runs on staged *.py files
-        files: \\.py$
+        files: \.py$
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.13
     hooks:
       - id: ruff
         args: ["--fix"]
         # only runs on staged *.py files
-        files: \\.py$
+        files: \.py$
   - repo: https://github.com/PyCQA/isort
     rev: 6.0.1
     hooks:
       - id: isort
         # only runs on staged *.py files
-        files: \\.py$
+        files: \.py$
   - repo: local
     hooks:
       - id: pytest
