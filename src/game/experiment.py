@@ -1,9 +1,9 @@
+from dataclasses import dataclass
+from typing import List
+
 import numpy as np
 import torch as T
-
-from dataclasses import dataclass
 from pydantic import BaseModel
-from typing import List
 
 from src.marl.algos.common import Observation
 

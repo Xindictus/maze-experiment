@@ -1,39 +1,47 @@
-import torch as T
-
 from typing import List
+
+import torch as T
 
 from src.config.qmix_base import QmixBaseConfig
 from src.game.experiment import Experiment
-from src.marl.algos.common import Observation
-from src.marl.algos.qmix import QmixAgent, QmixTrainer
-from src.marl.mixing.qmix import QMixer
+from src.marl.algos.common import ActionSpace, Observation
+from src.marl.algos.qmix import QmixAgent, QmixQNetNetwork
 
 
 class MAC:
     def __init__(
         self,
-        agents: List[QmixAgent],
         config: QmixBaseConfig,
-        mixer: QMixer,
-        trainer: QmixTrainer,
     ):
-        self.agents = agents
+        # Initialize agents
+        self.agents: List[QmixAgent] = [
+            QmixAgent(
+                # TODO: list input
+                action_space=ActionSpace(),
+                config=config,
+                network=QmixQNetNetwork(config=config),
+            )
+            for _ in range(config.n_agents)
+        ]
         self.config = config
-        self.experiment = Experiment
-        self.mixer = mixer
-        self.trainer = trainer
 
     def init_hidden(self):
         """
         Initializes hidden states for all agents - GRU only
         """
+        pass
         # for agent in self.agents:
-        #     agent.network.init_hidden()
+        #     agent.network.init_hidden(batch size ??)
 
-    def forward(self, epsilon: float) -> List[int]:
+    def forward(self, agent_id: int, obs: T.Tensor) -> T.Tensor:
         """
-        Performs forward pass for all agents and
-        selects actions using epsilon-greedy.
+        Forward pass for a single agent.
+        """
+        return self.agents[agent_id].network(obs)
+
+    def select_actions(self, env: Experiment, epsilon: float) -> List[int]:
+        """
+        Selects agent actions using epsilon-greedy.
 
         Returns:
             List[int]: Selected actions, one per agent.
@@ -41,22 +49,23 @@ class MAC:
         actions: List[int] = []
 
         for agent_id, agent in enumerate(self.agents):
-            local_obs = self.experiment.get_local_obs(agent_id=agent_id)
-            obs = Observation(config=self.config, normalized=local_obs)
+            obs = Observation(
+                config=self.config,
+                normalized=env.get_local_obs(agent_id),
+            )
             action = agent.select_action(obs.to_tensor(), epsilon)
             actions.append(action)
 
-    def compute_q_tot(self, agent_qs):
-        """_summary_
+        return actions
 
-        Args:
-            agent_qs (_type_): _description_
-        """
-        # TODO: Pass individual Qs in the mixer
-        agent_qs_stack = T.stack(agent_qs, dim=1)
-        global_state = self.experiment.get_global_state_T()
-        self.mixer(agent_qs_stack, global_state)
+    def parameters(self) -> List[T.nn.Parameter]:
+        return [p for agent in self.agents for p in agent.parameters()]
 
-    def on_batch_train(self, batch):
-        # TODO: Trainer
-        pass
+    def load_state(self, other: "MAC"):
+        # Both MAC instances should have the same number of agents
+        assert len(self.agents) == len(
+            other.agents
+        ), "MAC agent count mismatch during load_state"
+
+        for agent, target_agent in zip(self.agents, other.agents):
+            target_agent.load_state(agent)
