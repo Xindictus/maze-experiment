@@ -28,6 +28,9 @@ class QmixTrainer(Trainer):
         self.target_mixer = target_mixer
         self.config = config
 
+        self.mixer.to(config.device)
+        self.target_mixer.to(config.device)
+
         # Optimizer on all trainable params
         self.params = list(self.mac.parameters()) + list(
             self.mixer.parameters()
@@ -43,6 +46,7 @@ class QmixTrainer(Trainer):
 
     def train(self) -> None:
         batch = self.buffer.sample(self.config.batch_size)
+        batch = self._to_device(batch)
 
         # (batch, T)
         rewards = batch["rewards"][:, :-1]
@@ -63,8 +67,10 @@ class QmixTrainer(Trainer):
 
         # Compute Q-values from mac and target_mac
 
-        # (batch, T+1, n_agents, n_actions)
+        # (batch, T + 1, n_agents, n_actions)
         mac_out = self._get_q_values(self.mac, batch)
+
+        # (batch, T, n_agents, n_actions)
         target_mac_out = self._get_q_values(self.target_mac, batch)
 
         # Chosen Q-values (using actions taken)
@@ -74,23 +80,43 @@ class QmixTrainer(Trainer):
         )
 
         # Mask out invalid actions in target Qs
-        target_mac_out[avail_actions[:, 1:] == 0] = -9999999
-        target_max_qvals = target_mac_out[:, 1:].max(dim=-1)[0]
+        masked_target_mac_out = target_mac_out[:, 1:]
+        masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
+        target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
+
+        print("mac_out", mac_out[:, :-1].shape)
+        print("actions", actions.shape)
+        print("chosen_qs", chosen_qs.shape)
+        print("state", batch["state"][:, :-1].shape)
 
         # Mix agent individual Qs into global Q-tot
         # (batch, T, 1)
-        chosen_q_tot = self.mixer(chosen_qs, batch["state"][:, :-1])
-        target_q_tot = self.target_mixer(
-            target_max_qvals, batch["state"][:, 1:]
+        chosen_q_tot = self.mixer(
+            chosen_qs.to(self.config.device),
+            batch["state"][:, :-1].to(self.config.device),
         )
+
+        print("target_max_qvals", target_max_qvals.shape)
+        print("target_states", batch["state"][:, 1:].shape)
+
+        target_q_tot = self.target_mixer(
+            target_max_qvals.to(self.config.device),
+            batch["state"][:, 1:].to(self.config.device),
+        )
+
+        print("rewards", rewards.shape)
+        print("dones", dones.shape)
+        print("target_q_tot", target_q_tot.shape)
 
         # TD target
         # (batch, T, 1)
-        targets = rewards + self.config.gamma * (1 - dones) * target_q_tot
+        targets = (
+            rewards + self.config.gamma * (1 - dones) * target_q_tot[:, :-1]
+        )
 
         # TD loss
         # (batch, T, 1)
-        td_error = chosen_q_tot - targets.detach()
+        td_error = chosen_q_tot[:, :-1] - targets.detach()
         masked_td_error = td_error * mask.unsqueeze(-1)
         loss = (masked_td_error**2).sum() / mask.sum()
 
@@ -121,7 +147,7 @@ class QmixTrainer(Trainer):
                 obs = batch["obs"][:, t, agent_id, :]
 
                 # (batch, n_actions)
-                q = mac.forward(obs, agent_id)
+                q = mac.forward(agent_id, obs)
                 q_at_t.append(q)
 
             # (batch, n_agents, n_actions)
@@ -130,6 +156,9 @@ class QmixTrainer(Trainer):
             all_qs.append(q_at_t)
 
         return T.stack(all_qs, dim=1)
+
+    def _to_device(self, batch: dict[str, T.Tensor]) -> dict[str, T.Tensor]:
+        return {k: v.to(self.config.device) for k, v in batch.items()}
 
     def _update_targets(self) -> None:
         self.target_mac.load_state(self.mac)

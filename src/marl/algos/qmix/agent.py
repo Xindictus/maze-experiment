@@ -21,16 +21,16 @@ class QmixAgent(Agent):
         self.target_network = self._build_target_network()
 
     def _build_target_network(self) -> QmixNetwork:
-        target_net = QmixNetwork(config=self.config)
-        target_net.load_state_dic(self.network.state_dict())
+        target_net = type(self.network)(config=self.config)
+        target_net.load_state_dict(self.network.state_dict())
         target_net.to(self.config.device)
         return target_net
 
     def forward(self, obs: T.Tensor) -> T.Tensor:
         self.network(obs)
 
-    def target_forward(self, obs: T.Tensor) -> T.Tensor:
-        self.target_network(obs)
+    def parameters(self):
+        return self.network.parameters()
 
     def select_action(self, obs: T.Tensor, epsilon: float) -> int:
         q_values = self.forward(obs)
@@ -39,6 +39,9 @@ class QmixAgent(Agent):
             return T.randint(0, q_values.shape[-1], (1,)).item()
 
         return T.argmax(q_values, dim=-1).item()
+
+    def target_forward(self, obs: T.Tensor) -> T.Tensor:
+        self.target_network(obs)
 
     def update_target_network(self) -> None:
         # TODO: init + target + loss (configurable soft/hard update)

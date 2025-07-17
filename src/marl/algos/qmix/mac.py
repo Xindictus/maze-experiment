@@ -16,8 +16,7 @@ class MAC:
         # Initialize agents
         self.agents: List[QmixAgent] = [
             QmixAgent(
-                # TODO: list input
-                action_space=ActionSpace(),
+                action_space=ActionSpace(list(range(3))),
                 config=config,
                 network=QmixQNetNetwork(config=config),
             )
