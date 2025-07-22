@@ -9,8 +9,6 @@ from src.config.qmix_base import QmixBaseConfig
 from src.config.sac_base import SACBaseConfig
 from src.utils.logger import Logger
 
-logger = Logger().get_logger()
-
 # Dynamically discovered variants from single-variant modules
 GAME_VARIANTS = discover_variants("src.config.game_variants", GameBaseConfig)
 GUI_VARIANTS = discover_variants("src.config.gui_variants", GUIBaseConfig)
@@ -33,16 +31,17 @@ def build_config(
     game: str = "default",
     gui: str = "default",
     experiment: str = "default",
+    qmix: str = "default",
     sac: str = "default",
     overrides: dict | None = {},
 ) -> FullConfig:
     """
     Create and return a FullConfig instance by name + overrides.
     """
-    logger.debug(f"[GAME-VARIANTS]: {GAME_VARIANTS}")
-    logger.debug(f"[GUI-VARIANTS]: {GUI_VARIANTS}")
-    logger.debug(f"[EXPERIMENT-VARIANTS]: {EXPERIMENT_VARIANTS}")
-    logger.debug(f"[SAC-VARIANTS]: {SAC_VARIANTS}")
+    Logger().debug(f"[GAME-VARIANTS]: {GAME_VARIANTS}")
+    Logger().debug(f"[GUI-VARIANTS]: {GUI_VARIANTS}")
+    Logger().debug(f"[EXPERIMENT-VARIANTS]: {EXPERIMENT_VARIANTS}")
+    Logger().debug(f"[SAC-VARIANTS]: {SAC_VARIANTS}")
 
     # Overrides
     overrides = overrides or {}

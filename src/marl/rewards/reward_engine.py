@@ -1,4 +1,3 @@
-# TODO: Check old description values and where they come from
 class RewardEngine:
     @staticmethod
     def compute_reward(reached_goal: bool, timed_out: bool) -> int:

@@ -5,8 +5,6 @@ import torch.nn.functional as F
 from src.config.qmix_base import QmixBaseConfig
 from src.utils.logger import Logger
 
-logger = Logger().get_logger()
-
 
 class QMixer(nn.Module):
     """
@@ -26,7 +24,7 @@ class QMixer(nn.Module):
     def __init__(self, config: QmixBaseConfig):
         super(QMixer, self).__init__()
 
-        logger.debug(config)
+        Logger().debug(config)
         self.config = config
 
         """

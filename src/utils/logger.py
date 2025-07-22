@@ -1,3 +1,4 @@
+import inspect
 import logging
 from datetime import datetime
 
@@ -60,15 +61,39 @@ class Logger(metaclass=Singleton):
                     file_handler.setFormatter(formatter)
                     Logger._logger.addHandler(file_handler)
                 else:
-                    self.get_logger().info(self._no_fd_logger)
+                    Logger._logger.info(self._no_fd_logger)
             except Exception as e:
-                self.get_logger().warning(e)
-                self.get_logger().info(self._no_fd_logger)
+                Logger._logger.warning(e)
+                Logger._logger.info(self._no_fd_logger)
 
-    def get_logger(self) -> logging.Logger:
-        """_summary_
+    def _get_context(self) -> str:
+        # Skip the logger methods and try to find the real caller
+        for frame_info in inspect.stack()[2:]:
+            caller = frame_info.frame.f_locals.get("self")
 
-        Returns:
-            logging.Logger: Returns instantiated logger
-        """
-        return self._logger
+            if caller:
+                return f"[{caller.__class__.__name__}]"
+            # fallback to function name in non-class contexts
+            if "function" in frame_info and frame_info.function != "<module>":
+                return f"[{frame_info.function}]"
+        return "[\\m/]"
+
+    def debug(self, msg: str):
+        context = self._get_context()
+        Logger._logger.debug(f"{context} {msg}")
+
+    def info(self, msg: str):
+        context = self._get_context()
+        Logger._logger.info(f"{context} {msg}")
+
+    def warning(self, msg: str):
+        context = self._get_context()
+        Logger._logger.warning(f"{context} {msg}")
+
+    def error(self, msg: str):
+        context = self._get_context()
+        Logger._logger.error(f"{context} {msg}")
+
+    def exception(self, msg: str):
+        context = self._get_context()
+        Logger._logger.exception(f"{context} {msg}")

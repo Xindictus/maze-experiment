@@ -3,10 +3,6 @@ import inspect
 import re
 from typing import Type
 
-from src.utils.logger import Logger
-
-logger = Logger().get_logger()
-
 
 def discover_variants(module_name: str, base_class: Type) -> dict[str, Type]:
     """
