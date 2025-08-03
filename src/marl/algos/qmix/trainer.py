@@ -9,6 +9,7 @@ from src.marl.algos.common import Trainer
 from src.marl.algos.qmix import MAC
 from src.marl.buffers.replay_buffer_base import ReplayBufferBase
 from src.marl.mixing.qmix import QMixer
+from src.utils.logger import Logger
 
 
 class QmixTrainer(Trainer):
@@ -46,7 +47,14 @@ class QmixTrainer(Trainer):
 
     def train(self) -> None:
         batch = self.buffer.sample(self.config.batch_size)
+        # For QMIX episode batch
         batch = self._to_device(batch)
+
+        # obs = batch["obs"]
+        # actions = batch["actions"]
+        # rewards = batch["rewards"]
+        # next_obs = batch["next_obs"]
+        # dones = batch["dones"]
 
         # (batch, T)
         rewards = batch["rewards"][:, :-1]
@@ -64,6 +72,7 @@ class QmixTrainer(Trainer):
 
         # (batch, T + 1, n_agents, n_actions)
         avail_actions = batch["avail_actions"]
+        # avail_actions = T.ones((200, 2, 3), dtype=T.float32)
 
         # Compute Q-values from mac and target_mac
 
@@ -84,10 +93,10 @@ class QmixTrainer(Trainer):
         masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
         target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
 
-        print("mac_out", mac_out[:, :-1].shape)
-        print("actions", actions.shape)
-        print("chosen_qs", chosen_qs.shape)
-        print("state", batch["state"][:, :-1].shape)
+        Logger().debug(f"mac_out: {mac_out[:, :-1].shape}")
+        Logger().debug(f"actions: {actions.shape}")
+        Logger().debug(f"chosen_qs: {chosen_qs.shape}")
+        Logger().debug(f"state: {batch["state"][:, :-1].shape}")
 
         # Mix agent individual Qs into global Q-tot
         # (batch, T, 1)
@@ -96,17 +105,17 @@ class QmixTrainer(Trainer):
             batch["state"][:, :-1].to(self.config.device),
         )
 
-        print("target_max_qvals", target_max_qvals.shape)
-        print("target_states", batch["state"][:, 1:].shape)
+        Logger().debug(f"target_max_qvals: {target_max_qvals.shape}")
+        Logger().debug(f"target_states: {batch["state"][:, 1:].shape}")
 
         target_q_tot = self.target_mixer(
             target_max_qvals.to(self.config.device),
             batch["state"][:, 1:].to(self.config.device),
         )
 
-        print("rewards", rewards.shape)
-        print("dones", dones.shape)
-        print("target_q_tot", target_q_tot.shape)
+        Logger().debug(f"rewards: {rewards.shape}")
+        Logger().debug(f"dones: {dones.shape}")
+        Logger().debug(f"target_q_tot: {target_q_tot.shape}")
 
         # TD target
         # (batch, T, 1)

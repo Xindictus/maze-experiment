@@ -3,6 +3,7 @@ import torch as T
 from src.config.qmix_base import QmixBaseConfig
 from src.marl.algos.common import ActionSpace, Agent
 from src.marl.algos.qmix.agent_networks import QmixNetwork
+from src.utils.logger import Logger
 
 
 class QmixAgent(Agent):
@@ -27,13 +28,15 @@ class QmixAgent(Agent):
         return target_net
 
     def forward(self, obs: T.Tensor) -> T.Tensor:
-        self.network(obs)
+        return self.network(obs)
 
     def parameters(self):
         return self.network.parameters()
 
     def select_action(self, obs: T.Tensor, epsilon: float) -> int:
+        Logger().debug(f"obs shape: {obs.shape}, values: {obs}")
         q_values = self.forward(obs)
+        Logger().debug(f"q_values: {q_values}")
 
         if T.rand(1).item() < epsilon:
             return T.randint(0, q_values.shape[-1], (1,)).item()

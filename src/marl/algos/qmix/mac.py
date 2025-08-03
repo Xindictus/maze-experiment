@@ -47,12 +47,23 @@ class MAC:
         """
         actions: List[int] = []
 
+        def get_env_action(agent_action, discrete):
+            # convert agent's action to an environment-compatible one
+            tmp_agent_action = agent_action
+            if discrete:
+                tmp_agent_action = (
+                    -1 if agent_action == abs(2) else agent_action
+                )
+            return tmp_agent_action
+
         for agent_id, agent in enumerate(self.agents):
             obs = Observation(
                 config=self.config,
                 normalized=env.get_local_obs(agent_id),
             )
-            action = agent.select_action(obs.to_tensor(), epsilon)
+            action = get_env_action(
+                agent.select_action(obs.to_tensor(), epsilon), True
+            )
             actions.append(action)
 
         return actions

@@ -12,7 +12,7 @@ class Observation:
     normalized: np.ndarray
     raw_input: Optional[List[float]] = None
 
-    def get_state(self):
+    def get_state(self) -> np.ndarray:
         return self.normalized
 
     def slice(self, indices: List[int]) -> np.ndarray:

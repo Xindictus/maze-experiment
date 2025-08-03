@@ -62,9 +62,9 @@ class Experiment:
 
     def get_local_obs(self, agent_id: int) -> np.ndarray:
         if agent_id == 0:
-            return self.global_observation.slice([0, 2, 4, 6])
+            return self._global_obs.slice([0, 2, 4, 6])
         elif agent_id == 1:
-            return self.global_observation.slice([1, 3, 5, 7])
+            return self._global_obs.slice([1, 3, 5, 7])
         else:
             raise ValueError(f"Invalid agent ID: {agent_id}")
 

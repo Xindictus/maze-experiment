@@ -1,112 +1,120 @@
-import argparse
+import json
+import random
+import time
+import traceback
+from typing import Annotated, List
 
-from game.utils import get_config
-from temp import run_experiment
+from cyclopts import App, Parameter
 
+from game.experiment.engine_v2 import QmixRunner
+from src.config.full_config import FullConfig, build_config
+from src.config.loader import flatten_overrides
+from src.game.game_controller import GameController
+from src.marl.algos.qmix import MAC, QmixTrainer
+from src.marl.buffers.standard_replay_buffer import StandardReplayBuffer
+from src.marl.mixing.qmix import QMixer
+from src.utils.logger import Logger
 
-def parse_args():
-    """
-    Parses command-line arguments for training a SAC agent in the Maze3D
-    environment.
-
-    Returns:
-        argparse.Namespace: Parsed CLI arguments.
-    """
-    parser = argparse.ArgumentParser(
-        description="Train a SAC agent in the Maze3D environment"
-    )
-
-    # Core training options
-    parser.add_argument(
-        "--alg",
-        type=str,
-        default="",
-        required=True,
-        help="The algorithm to be used for the training",
-    )
-    parser.add_argument(
-        "--alg-config",
-        type=str,
-        default="",
-        required=True,
-        help="YAML config based on algorithm selected",
-    )
-    parser.add_argument(
-        "--participant",
-        type=str,
-        default="test",
-        help="Participant identifier for logs and results",
-    )
-
-    # SAC hyperparameters
-    parser.add_argument(
-        "--alpha",
-        type=float,
-        default=0.05,
-        help="Initial entropy coefficient",
-    )
-    parser.add_argument(
-        "--alpha-lr",
-        type=float,
-        default=0.001,
-        help="Learning rate for entropy coefficient",
-    )
-    parser.add_argument(
-        "--auto-alpha",
-        action="store_true",
-        help="Enable automatic entropy tuning",
-    )
-
-    # Agent setup
-    parser.add_argument(
-        "--agent-type",
-        type=str,
-        default="basesac",
-        help="Type of agent to use",
-    )
-    parser.add_argument(
-        "--num-actions", type=int, default=3, help="Number of discrete actions"
-    )
-
-    # Buffer and pretraining
-    parser.add_argument(
-        "--buffer-size", type=int, default=3500, help="Replay buffer size"
-    )
-    parser.add_argument(
-        "--buffer-path-1",
-        type=str,
-        default="game/saved_buffers/buffer_cris.npy",
-        help="Expert buffer 1 path",
-    )
-    parser.add_argument(
-        "--buffer-path-2",
-        type=str,
-        default="game/saved_buffers/buffer_koutris.npy",
-        help="Expert buffer 2 path",
-    )
-    parser.add_argument(
-        "--buffer-path-3",
-        type=str,
-        default=None,
-        help="Optional third buffer path",
-    )
-    parser.add_argument(
-        "--load-buffer", action="store_true", help="Load buffer from file"
-    )
-    parser.add_argument(
-        "--load-expert-buffers",
-        action="store_true",
-        help="Load expert demonstration buffers",
-    )
-
-    return parser.parse_args()
+app = App()
 
 
-def main():
-    args = parse_args()
-    config = get_config(args.alg, args.alg_config)
-    run_experiment(args, config)
+@app.default
+def run(
+    game: Annotated[
+        str, Parameter(name=["--game"], help="Game variant")
+    ] = "default",
+    gui: Annotated[
+        str, Parameter(name=["--gui"], help="Gui variant")
+    ] = "default",
+    experiment: Annotated[
+        str, Parameter(name=["--experiment"], help="Experiment variant")
+    ] = "default",
+    sac: Annotated[
+        str, Parameter(name=["--sac"], help="SAC variant")
+    ] = "default",
+    qmix: Annotated[
+        str, Parameter(name=["--qmix"], help="QMIX variant")
+    ] = "default",
+    overrides: Annotated[
+        List[str],
+        Parameter(
+            name=["--overrides", "-o"],
+            help="Field overrides like sac.alpha=0.02",
+            consume_multiple=True,
+        ),
+    ] = [],
+):
+    # Parse overrides from list[str] ~> nested dict
+    override_dict = flatten_overrides(overrides)
+    Logger().debug(f"[OVERRIDES]: {override_dict}")
+
+    config = build_config(
+        game=game,
+        gui=gui,
+        experiment=experiment,
+        qmix=qmix,
+        sac=sac,
+        overrides=override_dict,
+    )
+
+    full_config: FullConfig = json.dumps(
+        config.model_dump(mode="json"), indent=2
+    )
+    Logger().info(f"[FULL-CONFIG]: {full_config}")
+
+    maze = GameController(config)
+
+    # Init buffer
+    buffer = StandardReplayBuffer(mem_size=100)
+    # buffer = EpisodeReplayBuffer(mem_size=100)
+
+    # Dummy mixer and MAC
+    mixer = QMixer(config.qmix)
+    target_mixer = QMixer(config.qmix)
+
+    mac = MAC(config=config.qmix)
+    target_mac = MAC(config=config.qmix)
+
+    trainer = QmixTrainer(
+        buffer=buffer,
+        mac=mac,
+        mixer=mixer,
+        target_mac=target_mac,
+        target_mixer=target_mixer,
+        config=config.qmix,
+    )
+
+    runner = QmixRunner(
+        config=config,
+        game_controller=maze,
+        mac=mac,
+        trainer=trainer,
+        replay_buffer=buffer,
+    )
+
+    runner.run()
+    # my_test(config)
+
+
+def my_test(config):
+    """Dummy execution"""
+    while True:
+        try:
+            maze = GameController(config)
+
+            while True:
+                maze.step(
+                    [random.randint(-1, 1), random.randint(-1, 1)],
+                    False,
+                    0.2,
+                    "test",
+                    "",
+                )
+
+        except Exception:
+            traceback.print_exc()
+            time.sleep(3)
 
 
 if __name__ == "__main__":
-    main()
+    app()
