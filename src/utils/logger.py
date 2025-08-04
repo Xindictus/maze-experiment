@@ -5,6 +5,17 @@ from datetime import datetime
 from src.utils.settings import Settings
 from src.utils.singleton import Singleton
 
+LOG_LEVELS = {
+    "critical": logging.CRITICAL,
+    "fatal": logging.FATAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "warn": logging.WARN,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+    "notset": logging.NOTSET,
+}
+
 
 class Logger(metaclass=Singleton):
     """_summary_
@@ -20,7 +31,7 @@ class Logger(metaclass=Singleton):
     _no_fd_logger: str = "Moving on without a file logger"
 
     def __init__(
-        self, name: str = "maze-3d", log_lvl: int = logging.DEBUG
+        self, log_lvl: int = logging.DEBUG, name: str = "maze-3d"
     ) -> None:
         """_summary_
 

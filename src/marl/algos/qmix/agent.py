@@ -46,6 +46,9 @@ class QmixAgent(Agent):
     def target_forward(self, obs: T.Tensor) -> T.Tensor:
         self.target_network(obs)
 
+    def load_state(self, other: "QmixAgent") -> None:
+        self.network.load_state_dict(other.network.state_dict())
+
     def update_target_network(self) -> None:
         # TODO: init + target + loss (configurable soft/hard update)
         pass

@@ -2,13 +2,14 @@ import math
 import time
 from typing import Any, Dict, List
 
+import numpy as np
 import torch as T
 
 from src.config.full_config import FullConfig
 from src.game.experiment import Experiment
 from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
-from src.marl.buffers.standard_replay_buffer import StandardReplayBuffer
+from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
 from src.utils.logger import Logger
 
 
@@ -19,7 +20,7 @@ class QmixRunner:
         game_controller: GameController,
         mac: MAC,
         trainer: QmixTrainer,
-        replay_buffer: StandardReplayBuffer,
+        replay_buffer: EpisodeReplayBuffer,
     ):
         self.config = config
         self.maze = game_controller
@@ -93,8 +94,13 @@ class QmixRunner:
                 # TODO: Add epsilon to config instead
                 # TODO: print and check all actions
                 actions = self.mac.select_actions(experiment, epsilon=0.9)
+
+                env_actions = [
+                    -1 if action == 2 else action for action in actions
+                ]
+
                 # actions = [-1, -1]
-                Logger().error(f"actions: {actions}")
+                Logger().info(f"actions: {actions}")
 
                 timed_out = (
                     time.time() - start_game_time - redundant_end_duration
@@ -114,7 +120,7 @@ class QmixRunner:
                     action_pair,
                     internet_delay,
                 ) = self.maze.step(
-                    action_agent=actions,
+                    action_agent=env_actions,
                     timed_out=timed_out,
                     action_duration=self.action_duration,
                     mode=mode,
@@ -143,6 +149,10 @@ class QmixRunner:
                     "done": done,
                 }
 
+                Logger().debug("--------------------")
+                Logger().debug(transition)
+                Logger().debug("--------------------")
+
                 episode.append(transition)
                 episode_reward += reward
 
@@ -162,33 +172,41 @@ class QmixRunner:
             self.best_game_score = max(self.best_game_score, episode_reward)
 
             Logger().info(
-                f"[Runner] Block {block_number} | Round {round} | "
+                f"[{mode.upper()}] Block {block_number} | Round {round} | "
                 f"Reward: {episode_reward:.2f} | Steps: {step_counter} | "
                 f"Best: {self.best_game_score:.2f}"
             )
 
             if mode == "train":
                 # make the qmix structured transitions agent based
-                for agent_id in range(self.config.qmix.n_agents):
-                    transition = {
-                        "obs": local_obs[agent_id],
-                        "action": actions[agent_id],
-                        "reward": reward,
-                        "next_obs": next_local_obs[agent_id],
-                        "done": done,
-                    }
-                    self.replay_buffer.add(transition)
+                # for agent_id in range(self.config.qmix.n_agents):
+                #     transition = {
+                #         "obs": local_obs[agent_id],
+                #         "action": actions[agent_id],
+                #         "reward": reward,
+                #         "next_obs": next_local_obs[agent_id],
+                #         "done": done,
+                #     }
+                #     self.replay_buffer.add(transition)
+
                 # self.replay_buffer.add(episode)
                 # episode_dict = pack_episode(
                 #     episode=episode,
                 #     n_agents=self.config.qmix.n_agents,
                 #     n_actions=self.config.qmix.n_actions,
                 # )
-                # self.replay_buffer.add(episode_dict)
+                episode_dict = convert_episode_transitions_to_batch(
+                    episode=episode
+                )
+                # print_dict_shapes(episode_dict)
+                Logger().debug("$$$$$$$$$$$$$$$$$$$$$$$$$")
+                Logger().debug(episode_dict)
+                Logger().debug("$$$$$$$$$$$$$$$$$$$$$$$$$")
+                self.replay_buffer.add(episode_dict)
 
                 # TODO
                 # if len(self.replay_buffer) >= self.config.qmix.batch_size:
-                Logger().info("[Runner] Training...")
+                Logger().info("Training...")
                 self.trainer.train()
 
     @staticmethod
@@ -198,6 +216,58 @@ class QmixRunner:
             + (prev_observation[1] - observation[1]) ** 2
         )
         return dist_travel
+
+
+def convert_episode_transitions_to_batch(episode: list[dict]) -> dict:
+    T = len(episode)
+    N = len(episode[0]["obs"])
+    obs_dim = episode[0]["obs"][0].shape[0]
+    state_dim = episode[0]["state"].shape[0]
+
+    # Allocate storage
+    obs = np.zeros((T + 1, N, obs_dim), dtype=np.float32)
+    state = np.zeros((T + 1, state_dim), dtype=np.float32)
+    actions = np.zeros((T, N, 1), dtype=np.int64)
+    rewards = np.zeros((T, 1), dtype=np.float32)
+    dones = np.zeros((T, 1), dtype=np.float32)
+    mask = np.ones((T, 1), dtype=np.float32)
+
+    # Static avail_actions: [T+1, N, n_actions] filled with 1s
+    # TODO: static avail_actions. [T+1, N, n_actions]
+    # TODO: needs to be dynamic based on agent initialization.
+    # todo: for now hardcoding it
+    avail_actions = np.ones((T + 1, N, 3), dtype=np.float32)
+
+    for t in range(T):
+        transition = episode[t]
+
+        # obs[t] and state[t]
+        obs[t] = np.stack(transition["obs"])  # [N, obs_dim]
+        state[t] = transition["state"]  # [state_dim]
+        actions[t] = np.array(transition["actions"], dtype=np.int64).reshape(
+            N, 1
+        )  # [N, 1]
+        rewards[t] = transition["reward"]  # scalar
+        dones[t] = float(transition["done"])  # scalar
+
+    # Handle final obs and state
+    obs[T] = np.stack(episode[-1]["obs"])
+    state[T] = episode[-1]["state"]
+
+    return {
+        "obs": obs,  # [T+1, N, obs_dim]
+        "state": state,  # [T+1, state_dim]
+        "actions": actions,  # [T, N, 1]
+        "rewards": rewards,  # [T, 1]
+        "dones": dones,  # [T, 1]
+        "mask": mask,  # [T, 1]
+        "avail_actions": avail_actions,  # [T+1, N, n_actions]
+    }
+
+
+def print_dict_shapes(d):
+    for k, v in d.items():
+        print(f"{k}: {v.shape}")
 
 
 def pack_episode(

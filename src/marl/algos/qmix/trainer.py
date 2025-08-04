@@ -1,5 +1,6 @@
-from typing import Dict
+from typing import Any, Dict
 
+import numpy as np
 import torch as T
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
@@ -47,6 +48,14 @@ class QmixTrainer(Trainer):
 
     def train(self) -> None:
         batch = self.buffer.sample(self.config.batch_size)
+
+        Logger().debug("#################")
+        Logger().debug(f"actions shape: {batch["actions"].shape}")
+        # Logger().info(f"actions unique: {np.unique(batch["actions"])}")
+        # Logger().info(f"avail_actions shape: {batch["avail_actions"].shape}")
+        self.log_batch_shapes(batch)
+        # Logger().info(batch)
+        Logger().debug("#################")
         # For QMIX episode batch
         batch = self._to_device(batch)
 
@@ -93,24 +102,25 @@ class QmixTrainer(Trainer):
         masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
         target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
 
-        Logger().debug(f"mac_out: {mac_out[:, :-1].shape}")
-        Logger().debug(f"actions: {actions.shape}")
+        states_input = batch["state"][:, 1:-1]
+
         Logger().debug(f"chosen_qs: {chosen_qs.shape}")
-        Logger().debug(f"state: {batch["state"][:, :-1].shape}")
+        Logger().debug(f"batch['state']: {batch['state'].shape}")
+        Logger().debug(f"batch['state'][:, :-1]: {states_input.shape}")
 
         # Mix agent individual Qs into global Q-tot
         # (batch, T, 1)
         chosen_q_tot = self.mixer(
             chosen_qs.to(self.config.device),
-            batch["state"][:, :-1].to(self.config.device),
+            states_input.to(self.config.device),
         )
 
         Logger().debug(f"target_max_qvals: {target_max_qvals.shape}")
         Logger().debug(f"target_states: {batch["state"][:, 1:].shape}")
 
         target_q_tot = self.target_mixer(
-            target_max_qvals.to(self.config.device),
-            batch["state"][:, 1:].to(self.config.device),
+            target_max_qvals[:, :-1].to(self.config.device),
+            states_input.to(self.config.device),
         )
 
         Logger().debug(f"rewards: {rewards.shape}")
@@ -119,13 +129,16 @@ class QmixTrainer(Trainer):
 
         # TD target
         # (batch, T, 1)
-        targets = (
-            rewards + self.config.gamma * (1 - dones) * target_q_tot[:, :-1]
-        )
+        Logger().debug(f"rewards: {rewards.shape}")
+        Logger().debug(f"dones: {dones.shape}")
+        Logger().debug(f"target_q_tot: {target_q_tot.shape}")
+        Logger().debug(f"target_q_tot[:, :-1]: {target_q_tot[:, :-1].shape}")
+
+        targets = rewards + self.config.gamma * (1 - dones) * target_q_tot
 
         # TD loss
         # (batch, T, 1)
-        td_error = chosen_q_tot[:, :-1] - targets.detach()
+        td_error = chosen_q_tot - targets.detach()
         masked_td_error = td_error * mask.unsqueeze(-1)
         loss = (masked_td_error**2).sum() / mask.sum()
 
@@ -166,9 +179,35 @@ class QmixTrainer(Trainer):
 
         return T.stack(all_qs, dim=1)
 
-    def _to_device(self, batch: dict[str, T.Tensor]) -> dict[str, T.Tensor]:
-        return {k: v.to(self.config.device) for k, v in batch.items()}
+    # def _to_device(self, batch: dict[str, T.Tensor]) -> dict[str, T.Tensor]:
+    #     return {k: v.to(self.config.device) for k, v in batch.items()}
+    def _to_device(self, batch: dict[str, Any]) -> dict[str, T.Tensor]:
+        result = {}
+
+        for k, v in batch.items():
+            if isinstance(v, np.ndarray):
+                tensor = T.tensor(
+                    v, dtype=T.float32 if v.dtype == np.float32 else T.long
+                )
+            elif isinstance(v, T.Tensor):
+                tensor = v
+            else:
+                raise TypeError(f"Unsupported type for key '{k}': {type(v)}")
+
+            result[k] = tensor.to(self.config.device)
+
+        return result
 
     def _update_targets(self) -> None:
         self.target_mac.load_state(self.mac)
         self.target_mixer.load_state_dict(self.mixer.state_dict())
+
+    def log_batch_shapes(self, batch: dict[str, T.Tensor]):
+        Logger().debug("Batch tensor shapes:")
+        for k, v in batch.items():
+            if isinstance(v, T.Tensor):
+                Logger().debug(f"  {k}: {tuple(v.shape)} | dtype: {v.dtype}")
+            elif isinstance(v, np.ndarray):
+                Logger().debug(f"  {k}: {v.shape} | numpy | dtype: {v.dtype}")
+            else:
+                Logger().debug(f"  {k}: UNKNOWN TYPE {type(v)}")

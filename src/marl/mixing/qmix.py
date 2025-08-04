@@ -21,11 +21,12 @@ class QMixer(nn.Module):
     - 2: MLP (Linear -> ReLU -> Linear)
     """
 
-    def __init__(self, config: QmixBaseConfig):
+    def __init__(self, config: QmixBaseConfig, name: str):
         super(QMixer, self).__init__()
 
         Logger().debug(config)
         self.config = config
+        self.name = name
 
         """
         ### Hypernet Layers == 1
@@ -81,6 +82,15 @@ class QMixer(nn.Module):
                 )
 
     def forward(self, agent_qs: T.Tensor, states: T.Tensor) -> T.Tensor:
+        Logger().debug(f"[{self.name}] agent_qs: {agent_qs.shape}")
+        Logger().debug(f"[{self.name}] states: {states.shape}")
+        Logger().debug(
+            f"[{self.name}] state_dim config: {self.config.state_dim}"
+        )
+        Logger().debug(
+            f"[{self.name}] states.shape before reshape: {states.shape}"
+        )
+
         # TODO
         # - layer norm & batch norm
         # - weight clipping
@@ -103,10 +113,11 @@ class QMixer(nn.Module):
         We are reshaping states, because networks expect 2D input instead
         of our current 3D tensor.
         """
+        # states = states[:, :-1, :]
         states = states.reshape(-1, self.config.state_dim)
 
         # We need this for matrix multiplication with w1
-        agent_qs = agent_qs.view(-1, 1, self.config.n_agents)
+        agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
 
         # ---------------- First layer ---------------- #
 
@@ -118,13 +129,17 @@ class QMixer(nn.Module):
         # Monotonicity is enforced here.
         w1 = T.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
+        # print(
+        #     "w1 raw shape:",
+        #     self.hyper_w_1(states.reshape(-1, self.config.state_dim)).shape,
+        # )
         w1 = w1.view(-1, self.config.n_agents, self.config.embed_dim)
         b1 = b1.view(-1, 1, self.config.embed_dim)
 
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~")
-        print(agent_qs.shape)
-        print(w1.shape)
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~")
+        # print("~~~~~~~~~~~~~~~~~~~~~~~~~")
+        # print(f"[{self.name}] agent_qs: {agent_qs.shape}")
+        # print(f"[{self.name}] w1: {w1.shape}")
+        # print("~~~~~~~~~~~~~~~~~~~~~~~~~")
         # ELU activation
         hidden = F.elu(T.bmm(agent_qs, w1) + b1)
 

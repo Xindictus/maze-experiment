@@ -2,7 +2,7 @@ import json
 import random
 import time
 import traceback
-from typing import Annotated, List
+from typing import Annotated, List, Literal
 
 from cyclopts import App, Parameter
 
@@ -11,15 +11,27 @@ from src.config.full_config import FullConfig, build_config
 from src.config.loader import flatten_overrides
 from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
-from src.marl.buffers.standard_replay_buffer import StandardReplayBuffer
+from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
+
+# from src.marl.buffers.standard_replay_buffer import StandardReplayBuffer
 from src.marl.mixing.qmix import QMixer
-from src.utils.logger import Logger
+from src.utils.logger import LOG_LEVELS, Logger
 
 app = App()
 
 
 @app.default
 def run(
+    log: Literal[
+        "critical",
+        "fatal",
+        "error",
+        "warning",
+        "warn",
+        "info",
+        "debug",
+        "notset",
+    ] = "info",
     game: Annotated[
         str, Parameter(name=["--game"], help="Game variant")
     ] = "default",
@@ -44,9 +56,11 @@ def run(
         ),
     ] = [],
 ):
+    log_lvl = LOG_LEVELS[log]
+
     # Parse overrides from list[str] ~> nested dict
     override_dict = flatten_overrides(overrides)
-    Logger().debug(f"[OVERRIDES]: {override_dict}")
+    Logger(log_lvl).debug(f"[OVERRIDES]: {override_dict}")
 
     config = build_config(
         game=game,
@@ -65,12 +79,12 @@ def run(
     maze = GameController(config)
 
     # Init buffer
-    buffer = StandardReplayBuffer(mem_size=100)
-    # buffer = EpisodeReplayBuffer(mem_size=100)
+    # buffer = StandardReplayBuffer(mem_size=100)
+    buffer = EpisodeReplayBuffer(mem_size=100)
 
     # Dummy mixer and MAC
-    mixer = QMixer(config.qmix)
-    target_mixer = QMixer(config.qmix)
+    mixer = QMixer(config.qmix, "MAIN")
+    target_mixer = QMixer(config.qmix, "TARGET")
 
     mac = MAC(config=config.qmix)
     target_mac = MAC(config=config.qmix)

@@ -1,8 +1,8 @@
 from typing import Any, Dict, List
 
 import numpy as np
-import torch as T
 
+# import torch as T
 from src.marl.buffers.replay_buffer_base import ReplayBufferBase
 
 
@@ -41,5 +41,5 @@ class EpisodeReplayBuffer(ReplayBufferBase):
         for key in self.storage[0].keys():
             batch[key] = [self.storage[i][key] for i in indices]
 
-        # return {k: np.array(v) for k, v in batch.items()}
-        return {k: T.stack(v) for k, v in batch.items()}
+        return {k: np.array(v) for k, v in batch.items()}
+        # return {k: T.stack(v) for k, v in batch.items()}
