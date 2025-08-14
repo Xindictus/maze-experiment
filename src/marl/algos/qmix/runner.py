@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import numpy as np
 import torch as T
@@ -90,16 +90,19 @@ class QmixRunner:
             while True:
                 step_counter += 1
 
-                # TODO: Add epsilon to config instead
-                # TODO: print and check all actions
-                actions = self.mac.select_actions(experiment, epsilon=0.9)
+                actions = self.mac.select_actions(
+                    experiment, epsilon=self.config.qmix.epsilon
+                )
 
-                # TODO: comment about env actions
+                """
+                The game understands actions only in terms of angle
+                direction. Hence, we convert agent actions to the game
+                specific actions (-1, 0, 1).
+                """
                 env_actions = [
                     -1 if action == 2 else action for action in actions
                 ]
 
-                # actions = [-1, -1]
                 Logger().info(f"actions: {actions}")
 
                 timed_out = (
@@ -138,7 +141,6 @@ class QmixRunner:
                 ]
                 next_global_state = experiment.global_observation
 
-                # TODO: Differentiate between env/real agent action
                 transition = {
                     "obs": local_obs,
                     "state": global_state,
@@ -154,6 +156,16 @@ class QmixRunner:
                 Logger().debug("--------------------")
 
                 episode.append(transition)
+
+                if (
+                    len(self.replay_buffer)
+                    == self.config.qmix.batch_episode_size
+                ):
+                    self.replay_buffer.add(
+                        episode=self.pack_episode(episode=episode)
+                    )
+                    episode = []
+
                 episode_reward += reward
 
                 if done:
@@ -178,132 +190,73 @@ class QmixRunner:
             )
 
             if mode == "train":
-                # TODO:
                 for _ in range(self.config.experiment.epochs):
-                    episode_dict = convert_episode_transitions_to_batch(
-                        episode=episode
-                    )
+                    # Packs leftover transitions into an episode
+                    episode_dict = self.pack_episode(episode=episode)
+
                     # print_dict_shapes(episode_dict)
                     Logger().debug(episode_dict)
                     self.replay_buffer.add(episode_dict)
 
-                    # TODO
-                    # if len(self.replay_buffer) >= self.config.qmix.batch_size:
-                    Logger().info("Training...")
-                    self.trainer.train()
+                    if len(self.replay_buffer) >= self.config.qmix.batch_size:
+                        Logger().info("Training...")
+                        self.trainer.train()
 
+    def pack_episode(self, episode: List[Dict]) -> Dict:
+        t = len(episode)
+        N = len(episode[0]["obs"])
+        obs_dim = episode[0]["obs"][0].shape[0]
+        state_dim = episode[0]["state"].shape[0]
 
-def convert_episode_transitions_to_batch(episode: list[dict]) -> dict:
-    T = len(episode)
-    N = len(episode[0]["obs"])
-    obs_dim = episode[0]["obs"][0].shape[0]
-    state_dim = episode[0]["state"].shape[0]
+        # Allocate storage
+        obs = np.zeros((t + 1, N, obs_dim), dtype=np.float32)
+        state = np.zeros((t + 1, state_dim), dtype=np.float32)
+        actions = np.zeros((t, N, 1), dtype=np.int64)
+        rewards = np.zeros((t, 1), dtype=np.float32)
+        dones = np.zeros((t, 1), dtype=np.float32)
+        mask = np.ones((t, 1), dtype=np.float32)
 
-    # Allocate storage
-    obs = np.zeros((T + 1, N, obs_dim), dtype=np.float32)
-    state = np.zeros((T + 1, state_dim), dtype=np.float32)
-    actions = np.zeros((T, N, 1), dtype=np.int64)
-    rewards = np.zeros((T, 1), dtype=np.float32)
-    dones = np.zeros((T, 1), dtype=np.float32)
-    mask = np.ones((T, 1), dtype=np.float32)
+        # Static avail_actions: [T + 1, N, n_actions] filled with 1s
+        # TODO: static avail_actions. [T + 1, N, n_actions]
+        # TODO: needs to be dynamic based on agent initialization.
+        # todo: for now hardcoding it
+        avail_actions = np.ones((t + 1, N, 3), dtype=np.float32)
 
-    # Static avail_actions: [T+1, N, n_actions] filled with 1s
-    # TODO: static avail_actions. [T+1, N, n_actions]
-    # TODO: needs to be dynamic based on agent initialization.
-    # todo: for now hardcoding it
-    avail_actions = np.ones((T + 1, N, 3), dtype=np.float32)
+        for t in range(T):
+            transition = episode[t]
 
-    for t in range(T):
-        transition = episode[t]
+            # [N, obs_dim]
+            obs[t] = np.stack(transition["obs"])
+            # [state_dim]
+            state[t] = transition["state"]
+            actions[t] = np.array(
+                transition["actions"], dtype=np.int64
+            ).reshape(N, 1)
+            rewards[t] = transition["reward"]
+            dones[t] = float(transition["done"])
 
-        # [N, obs_dim]
-        obs[t] = np.stack(transition["obs"])
-        # [state_dim]
-        state[t] = transition["state"]
-        actions[t] = np.array(transition["actions"], dtype=np.int64).reshape(
-            N, 1
-        )
-        rewards[t] = transition["reward"]
-        dones[t] = float(transition["done"])
+        # Handle final obs and state
+        obs[t] = np.stack(episode[-1]["obs"])
+        state[t] = episode[-1]["state"]
 
-    # Handle final obs and state
-    obs[T] = np.stack(episode[-1]["obs"])
-    state[T] = episode[-1]["state"]
-
-    return {
-        # [T+1, N, obs_dim]
-        "obs": obs,
-        # [T+1, state_dim]
-        "state": state,
-        # [T, N, 1]
-        "actions": actions,
-        # [T, 1]
-        "rewards": rewards,
-        # [T, 1]
-        "dones": dones,
-        # [T, 1]
-        "mask": mask,
-        # [T+1, N, n_actions]
-        "avail_actions": avail_actions,
-    }
+        return {
+            # [T + 1, N, obs_dim]
+            "obs": obs,
+            # [T + 1, state_dim]
+            "state": state,
+            # [T, N, 1]
+            "actions": actions,
+            # [T, 1]
+            "rewards": rewards,
+            # [T, 1]
+            "dones": dones,
+            # [T, 1]
+            "mask": mask,
+            # [T + 1, N, n_actions]
+            "avail_actions": avail_actions,
+        }
 
 
 def print_dict_shapes(d):
     for k, v in d.items():
         print(f"{k}: {v.shape}")
-
-
-def pack_episode(
-    episode: List[Dict[str, Any]],
-    n_agents: int,
-    n_actions: int,
-) -> Dict[str, T.Tensor]:
-    """
-    Converts a list of transitions into a single episode of torch.Tensors.
-    """
-    T_steps = len(episode)
-
-    obs = []
-    next_obs = []
-    actions = []
-    rewards = []
-    dones = []
-    states = []
-    next_states = []
-
-    for t in episode:
-        # shape: (n_agents, obs_dim)
-        obs.append(t["obs"])
-        next_obs.append(t["next_obs"])
-        # (n_agents, 1)
-        actions.append([[a] for a in t["actions"]])
-        rewards.append([t["reward"]])
-        dones.append([float(t["done"])])
-        states.append(t["state"])
-        next_states.append(t["next_state"])
-
-    # Convert to torch tensors with correct shapes and types
-    episode_dict = {
-        # (T+1, n_agents, obs_dim)
-        "obs": T.tensor(obs + [next_obs[-1]], dtype=T.float32),
-        # (T, n_agents, 1)
-        "actions": T.tensor(actions, dtype=T.long),
-        # (T, 1)
-        "rewards": T.tensor(rewards, dtype=T.float32),
-        # (T, 1)
-        "dones": T.tensor(dones, dtype=T.float32),
-        # (T+1, state_dim)
-        "state": T.tensor(states + [next_states[-1]], dtype=T.float32),
-        # dummy
-        "avail_actions": T.ones(
-            (T_steps + 1, n_agents, n_actions), dtype=T.float32
-        ),
-        # (T, 1)
-        "mask": T.ones((T_steps, 1), dtype=T.float32),
-    }
-
-    Logger().debug("\n[DEBUG] Packed Episode:")
-    for k, v in episode_dict.items():
-        Logger().debug(f"  {k:<15} | shape: {v.shape} | dtype: {v.dtype}")
-
-    return episode_dict

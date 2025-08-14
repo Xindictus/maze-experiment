@@ -7,15 +7,21 @@ from src.config.validators import must_be_power_of_two
 
 
 class QmixBaseConfig(BaseModel):
+    # The number of transition states saved in each episode
+    batch_episode_size: int = Field(default=16, ge=2, le=4096)
+
     # Experience buffer - batch size
-    batch_size: int = Field(default=32, ge=1, le=4096)
+    batch_size: int = Field(default=32, ge=2, le=4096)
 
     # Default device to be used
     # TODO: Restrict to cuda/cpu choices
     device: str = Field(default="cuda")
 
     # Final output dimension of the mixer hidden layer
-    embed_dim: int = Field(32, gt=0)
+    embed_dim: int = Field(default=32, gt=0)
+
+    # Epsilon-greedy exploration strategy parameter
+    epsilon: float = Field(default=0.9)
 
     # Discount factor for future rewards.
     gamma: float = Field(default=0.99, ge=0.0, le=1.0)
@@ -24,13 +30,13 @@ class QmixBaseConfig(BaseModel):
     Global norm to clip gradients during backprop.
     Prevents exploding gradients.
     """
-    grad_norm_clip: float = Field(10.0, ge=0.0)
+    grad_norm_clip: float = Field(default=10.0, ge=0.0)
 
     # List of hidden layer sizes for the agent network (e.g., [64, 64])
     hidden_dims: List[int] = Field(default_factory=lambda: [64, 32])
 
     # Hidden layer size in the hypernet (if 2-layer MLP is used)
-    hypernet_embed: int = Field(64, gt=0)
+    hypernet_embed: int = Field(default=64, gt=0)
 
     """
     Number of layers in each hypernetwork:
@@ -53,7 +59,7 @@ class QmixBaseConfig(BaseModel):
 
     # RMSProp smoothing constant (alpha).
     optim_alpha: float = Field(
-        0.99,
+        default=0.99,
         ge=0.0,
         le=1.0,
         description="Controls the moving average of squared gradients.",
@@ -75,9 +81,9 @@ class QmixBaseConfig(BaseModel):
 
     # Restrict values to power of 2
     # TODO: hidden dim
-    _check_power = field_validator("embed_dim", "hypernet_embed")(
-        must_be_power_of_two
-    )
+    _check_power = field_validator(
+        "batch_episode_size", "batch_size", "embed_dim", "hypernet_embed"
+    )(must_be_power_of_two)
 
     @model_validator(mode="after")
     def compute_flattened_state_dim(self) -> "QmixBaseConfig":
