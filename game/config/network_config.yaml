@@ -1,3 +1,0 @@
-ip_distributor: "http://localhost:8080"
-maze_server: "http://localhost:8080"
-maze_rl: "http://localhost:8080"
