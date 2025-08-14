@@ -6,11 +6,11 @@ from typing import Annotated, List, Literal
 
 from cyclopts import App, Parameter
 
-from game.experiment.engine_v2 import QmixRunner
 from src.config.full_config import FullConfig, build_config
 from src.config.loader import flatten_overrides
 from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
+from src.marl.algos.qmix.runner import QmixRunner
 from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
 
 # from src.marl.buffers.standard_replay_buffer import StandardReplayBuffer
