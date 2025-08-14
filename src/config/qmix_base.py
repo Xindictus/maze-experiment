@@ -10,6 +10,8 @@ class QmixBaseConfig(BaseModel):
     # Experience buffer - batch size
     batch_size: int = Field(default=32, ge=1, le=4096)
 
+    # Default device to be used
+    # TODO: Restrict to cuda/cpu choices
     device: str = Field(default="cuda")
 
     # Final output dimension of the mixer hidden layer

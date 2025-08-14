@@ -13,8 +13,9 @@ class AgentAgentConfig(GameBaseConfig):
 
 class AgentOnlyConfig(GameBaseConfig):
     # True if playing only the RL agent (no human-in-the-loop)
+    # TODO: Unused
     agent_only: bool = Field(default=True)
-    # TODO
+    # TODO: Unused
     human_assist: bool = Field(default=False)
 
 
@@ -23,5 +24,5 @@ class EvaluationConfig(GameBaseConfig):
 
 
 class HumanDataCollectConfig(GameBaseConfig):
-    # TODO
+    # TODO: Unused
     human_only: bool = Field(default=True)

@@ -80,7 +80,7 @@ def run(
 
     # Init buffer
     # buffer = StandardReplayBuffer(mem_size=100)
-    buffer = EpisodeReplayBuffer(mem_size=100)
+    buffer = EpisodeReplayBuffer(mem_size=config.experiment.buffer_memory_size)
 
     # Dummy mixer and MAC
     mixer = QMixer(config.qmix, "MAIN")

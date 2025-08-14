@@ -11,15 +11,19 @@ class DefaultConfig(SACBaseConfig):
 
 class AgentAgentConfig(SACBaseConfig):
     # If True, the main agent's weights will not be updated during training
+    # TODO: Unused
     freeze_agent: bool = Field(default=True)
 
     # Path to the checkpoint file for the main agent
+    # TODO: Unused
     load_file: Path = Field(default=Path("rl_models/policy_transfer/"))
 
     # Whether to initialize and load a second agent
+    # TODO: Unused
     load_second_agent: bool = Field(default=True)
 
     # Optional path to checkpoint for the second agent
+    # TODO: Unused
     load_second_file: Path = Field(default=Path("rl_models/initial/"))
 
 
@@ -28,9 +32,11 @@ class AgentOnlyConfig(SACBaseConfig):
     batch_size: int = Field(default=64, ge=1, le=4096)
 
     # If True, the main agent's weights will not be updated during training
+    # TODO: Unused
     freeze_agent: bool = Field(default=True)
 
     # Whether to load an existing checkpoint at the start of training
+    # TODO: Unused
     load_checkpoint: bool = Field(default=False)
 
 
