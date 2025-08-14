@@ -70,3 +70,6 @@ class Experiment:
 
     def get_global_state_T(self) -> T.Tensor:
         return self._global_obs.to_tensor()
+
+    def get_env_actions(self, actions: List[int]) -> List[int]:
+        return [-1 if action == 2 else action for action in actions]

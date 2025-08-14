@@ -99,9 +99,7 @@ class QmixRunner:
                 direction. Hence, we convert agent actions to the game
                 specific actions (-1, 0, 1).
                 """
-                env_actions = [
-                    -1 if action == 2 else action for action in actions
-                ]
+                env_actions = experiment.get_env_actions(actions=actions)
 
                 Logger().info(f"actions: {actions}")
 
