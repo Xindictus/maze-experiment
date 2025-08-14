@@ -1,4 +1,3 @@
-import math
 import time
 from typing import Any, Dict, List
 
@@ -180,28 +179,18 @@ class QmixRunner:
 
             if mode == "train":
                 # TODO:
-                for _ in range(200):
+                for _ in range(self.config.experiment.epochs):
                     episode_dict = convert_episode_transitions_to_batch(
                         episode=episode
                     )
                     # print_dict_shapes(episode_dict)
-                    Logger().debug("$$$$$$$$$$$$$$$$$$$$$$$$$")
                     Logger().debug(episode_dict)
-                    Logger().debug("$$$$$$$$$$$$$$$$$$$$$$$$$")
                     self.replay_buffer.add(episode_dict)
 
                     # TODO
                     # if len(self.replay_buffer) >= self.config.qmix.batch_size:
                     Logger().info("Training...")
                     self.trainer.train()
-
-    @staticmethod
-    def get_distance_traveled(dist_travel, prev_observation, observation):
-        dist_travel += math.sqrt(
-            (prev_observation[0] - observation[0]) ** 2
-            + (prev_observation[1] - observation[1]) ** 2
-        )
-        return dist_travel
 
 
 def convert_episode_transitions_to_batch(episode: list[dict]) -> dict:

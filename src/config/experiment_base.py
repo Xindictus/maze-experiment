@@ -11,6 +11,9 @@ class ExperimentBaseConfig(BaseModel):
     # The size of the buffer to initialize with
     buffer_memory_size: int = Field(default=3500)
 
+    # Number of train epochs
+    epochs: int = Field(default=200)
+
     # Number of rounds/games per block
     games_per_block: int = Field(default=10)
 

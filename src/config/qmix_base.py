@@ -65,7 +65,7 @@ class QmixBaseConfig(BaseModel):
     optim_eps: float = Field(default=1e-5, ge=0.0)
 
     #  Shape of the global state tensor
-    state_shape: Tuple[int, ...] = Field(default=(4,), min_length=1)
+    state_shape: Tuple[int, ...] = Field(default=(8,), min_length=1)
 
     """
     Number of training steps between target network updates.

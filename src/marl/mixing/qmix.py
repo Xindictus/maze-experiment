@@ -136,10 +136,10 @@ class QMixer(nn.Module):
         w1 = w1.view(-1, self.config.n_agents, self.config.embed_dim)
         b1 = b1.view(-1, 1, self.config.embed_dim)
 
-        # print("~~~~~~~~~~~~~~~~~~~~~~~~~")
-        # print(f"[{self.name}] agent_qs: {agent_qs.shape}")
-        # print(f"[{self.name}] w1: {w1.shape}")
-        # print("~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print(f"[{self.name}] agent_qs: {agent_qs.shape}")
+        print(f"[{self.name}] w1: {w1.shape}")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~")
         # ELU activation
         hidden = F.elu(T.bmm(agent_qs, w1) + b1)
 

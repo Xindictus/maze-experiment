@@ -49,21 +49,14 @@ class QmixTrainer(Trainer):
     def train(self) -> None:
         batch = self.buffer.sample(self.config.batch_size)
 
-        Logger().debug("#################")
         Logger().debug(f"actions shape: {batch["actions"].shape}")
         # Logger().info(f"actions unique: {np.unique(batch["actions"])}")
         # Logger().info(f"avail_actions shape: {batch["avail_actions"].shape}")
         self.log_batch_shapes(batch)
         # Logger().info(batch)
-        Logger().debug("#################")
+
         # For QMIX episode batch
         batch = self._to_device(batch)
-
-        # obs = batch["obs"]
-        # actions = batch["actions"]
-        # rewards = batch["rewards"]
-        # next_obs = batch["next_obs"]
-        # dones = batch["dones"]
 
         # (batch, T)
         rewards = batch["rewards"][:, :-1]
