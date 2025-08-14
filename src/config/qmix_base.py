@@ -8,7 +8,7 @@ from src.config.validators import must_be_power_of_two
 
 class QmixBaseConfig(BaseModel):
     # Experience buffer - batch size
-    batch_size: int = Field(default=256, ge=1, le=4096)
+    batch_size: int = Field(default=32, ge=1, le=4096)
 
     device: str = Field(default="cuda")
 
@@ -69,7 +69,7 @@ class QmixBaseConfig(BaseModel):
     Number of training steps between target network updates.
     Higher values slow updates for stability.
     """
-    target_update_interval: int = Field(default=10, ge=1)
+    target_update_interval: int = Field(default=2, ge=1)
 
     # Restrict values to power of 2
     # TODO: hidden dim
