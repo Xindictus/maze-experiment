@@ -47,7 +47,8 @@ class QmixTrainer(Trainer):
         self.training_steps = 0
 
     def train(self) -> None:
-        batch = self.buffer.sample(self.config.batch_size)
+        Logger().debug(f"Buffer size: {len(self.buffer)}")
+        batch = self.buffer.sample(self.config.batch_sample_size)
 
         Logger().debug(f"actions shape: {batch["actions"].shape}")
         # Logger().info(f"actions unique: {np.unique(batch["actions"])}")
@@ -134,6 +135,8 @@ class QmixTrainer(Trainer):
         td_error = chosen_q_tot - targets.detach()
         masked_td_error = td_error * mask.unsqueeze(-1)
         loss = (masked_td_error**2).sum() / mask.sum()
+
+        Logger().info(f"Loss: {loss}")
 
         # Optimizer
         self.optimizer.zero_grad()

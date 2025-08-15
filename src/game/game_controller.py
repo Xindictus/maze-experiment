@@ -75,7 +75,7 @@ class GameController:
                 if res.get("command") == "player_ready":
                     return
             except Exception as e:
-                Logger().exception(f"/agent_ready not returned: {e}")
+                Logger().error(f"/agent_ready not returned: {e}")
                 time.sleep(3)
 
     def send(
@@ -94,7 +94,7 @@ class GameController:
                     continue
                 return res
             except Exception as e:
-                Logger().exception(f"/send failed with {e}")
+                Logger().error(f"/send failed: {e}")
                 Logger().warning("Retrying after agent ready...")
                 self.agent_ready()
                 time.sleep(0.1)

@@ -2,8 +2,8 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-# import torch as T
 from src.marl.buffers.replay_buffer_base import ReplayBufferBase
+from src.utils.logger import Logger
 
 
 class EpisodeReplayBuffer(ReplayBufferBase):
@@ -36,10 +36,12 @@ class EpisodeReplayBuffer(ReplayBufferBase):
         self.next_idx = (self.next_idx + 1) % self.mem_size
 
     def _encode_sample(self, indices: List[int]) -> Dict[str, np.ndarray]:
+        Logger().debug(f"Indices: {indices}")
         batch = {}
 
         for key in self.storage[0].keys():
             batch[key] = [self.storage[i][key] for i in indices]
 
+        Logger().debug(batch)
         return {k: np.array(v) for k, v in batch.items()}
         # return {k: T.stack(v) for k, v in batch.items()}

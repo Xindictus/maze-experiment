@@ -2,7 +2,6 @@ import time
 from typing import Dict, List
 
 import numpy as np
-import torch as T
 
 from src.config.full_config import FullConfig
 from src.game.experiment import Experiment
@@ -49,6 +48,9 @@ class QmixRunner:
 
             Logger().info(f"Train Block: {block}")
             self.run_block(block, mode="train")
+
+            Logger().info(f"Save checkpoint: {block}")
+            self.save_chkp()
 
         Logger().info("QMIX Training Complete")
         self.maze.finished()
@@ -155,10 +157,12 @@ class QmixRunner:
 
                 episode.append(transition)
 
-                if (
-                    len(self.replay_buffer)
-                    == self.config.qmix.batch_episode_size
-                ):
+                Logger().debug(f"Episode length: {len(episode)}")
+                Logger().debug(
+                    f"Max Episode length: {self.config.qmix.batch_episode_size}"
+                )
+
+                if len(episode) == self.config.qmix.batch_episode_size:
                     self.replay_buffer.add(
                         episode=self.pack_episode(episode=episode)
                     )
@@ -188,15 +192,18 @@ class QmixRunner:
             )
 
             if mode == "train":
-                for _ in range(self.config.experiment.epochs):
-                    # Packs leftover transitions into an episode
-                    episode_dict = self.pack_episode(episode=episode)
+                # Packs leftover transitions into an episode
+                # self.replay_buffer.add(self.pack_episode(episode=episode))
 
-                    # print_dict_shapes(episode_dict)
-                    Logger().debug(episode_dict)
-                    self.replay_buffer.add(episode_dict)
+                Logger().debug(
+                    f"Buffer size runner: {len(self.replay_buffer)}"
+                )
 
-                    if len(self.replay_buffer) >= self.config.qmix.batch_size:
+                if (
+                    len(self.replay_buffer)
+                    >= self.config.qmix.batch_sample_size
+                ):
+                    for _ in range(self.config.experiment.epochs):
                         Logger().info("Training...")
                         self.trainer.train()
 
@@ -220,18 +227,18 @@ class QmixRunner:
         # todo: for now hardcoding it
         avail_actions = np.ones((t + 1, N, 3), dtype=np.float32)
 
-        for t in range(T):
-            transition = episode[t]
+        for t_step in range(t):
+            transition = episode[t_step]
 
             # [N, obs_dim]
-            obs[t] = np.stack(transition["obs"])
+            obs[t_step] = np.stack(transition["obs"])
             # [state_dim]
-            state[t] = transition["state"]
-            actions[t] = np.array(
+            state[t_step] = transition["state"]
+            actions[t_step] = np.array(
                 transition["actions"], dtype=np.int64
             ).reshape(N, 1)
-            rewards[t] = transition["reward"]
-            dones[t] = float(transition["done"])
+            rewards[t_step] = transition["reward"]
+            dones[t_step] = float(transition["done"])
 
         # Handle final obs and state
         obs[t] = np.stack(episode[-1]["obs"])
@@ -253,6 +260,9 @@ class QmixRunner:
             # [T + 1, N, n_actions]
             "avail_actions": avail_actions,
         }
+
+    def save_chkp(self) -> None:
+        pass
 
 
 def print_dict_shapes(d):

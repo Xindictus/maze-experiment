@@ -101,9 +101,9 @@ class Logger(metaclass=Singleton):
         context = self._get_context()
         Logger._logger.warning(f"{context} {msg}")
 
-    def error(self, msg: str):
+    def error(self, msg: str, exc_info: bool = False):
         context = self._get_context()
-        Logger._logger.error(f"{context} {msg}")
+        Logger._logger.error(f"{context} {msg}", exc_info=exc_info)
 
     def exception(self, msg: str):
         context = self._get_context()
