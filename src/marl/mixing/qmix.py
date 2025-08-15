@@ -82,20 +82,19 @@ class QMixer(nn.Module):
                 )
 
     def forward(self, agent_qs: T.Tensor, states: T.Tensor) -> T.Tensor:
-        Logger().debug(f"[{self.name}] agent_qs: {agent_qs.shape}")
-        Logger().debug(f"[{self.name}] states: {states.shape}")
+        Logger().debug(f"[{self.name}] agent_qs (shape): {agent_qs.shape}")
+        Logger().debug(f"[{self.name}] states (shape): {states.shape}")
         Logger().debug(
-            f"[{self.name}] state_dim config: {self.config.state_dim}"
+            f"[{self.name}] state_dim config (shape): {self.config.state_dim}"
         )
         Logger().debug(
-            f"[{self.name}] states.shape before reshape: {states.shape}"
+            f"[{self.name}] states before reshape (shape): {states.shape}"
         )
 
         # TODO
         # - layer norm & batch norm
         # - weight clipping
         # - dropout in hypernetworks
-        # logger.debug(f"{tensor.detach().cpu().numpy()}")
 
         # Store original batch size (episodes) before flattening for mixing
         batch_size = agent_qs.size(0)
@@ -129,17 +128,9 @@ class QMixer(nn.Module):
         # Monotonicity is enforced here.
         w1 = T.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
-        # print(
-        #     "w1 raw shape:",
-        #     self.hyper_w_1(states.reshape(-1, self.config.state_dim)).shape,
-        # )
         w1 = w1.view(-1, self.config.n_agents, self.config.embed_dim)
         b1 = b1.view(-1, 1, self.config.embed_dim)
 
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~")
-        print(f"[{self.name}] agent_qs: {agent_qs.shape}")
-        print(f"[{self.name}] w1: {w1.shape}")
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~")
         # ELU activation
         hidden = F.elu(T.bmm(agent_qs, w1) + b1)
 

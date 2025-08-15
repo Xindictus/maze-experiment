@@ -14,11 +14,13 @@ class Agent(ABC):
         action_space: ActionSpace,
         config: BaseModel,
         network: AgentNetwork,
+        name: str,
     ):
         self.action_space = action_space
         self.config = config
         self.network = network
         self.observation: Observation = None
+        self.name: str = name
 
     @abstractmethod
     def forward(self, obs: T.Tensor) -> T.Tensor:

@@ -11,10 +11,7 @@ class QmixBaseConfig(BaseModel):
     batch_episode_size: int = Field(default=16, ge=2, le=4096)
 
     # The sample sizes to pick each time
-    batch_sample_size: int = Field(default=32, ge=2, le=4096)
-
-    # Experience buffer - batch size
-    batch_size: int = Field(default=1024, ge=2, le=4096)
+    batch_size: int = Field(default=32, ge=2, le=4096)
 
     # Default device to be used
     # TODO: Restrict to cuda/cpu choices

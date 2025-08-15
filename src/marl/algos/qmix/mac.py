@@ -19,8 +19,9 @@ class MAC:
                 action_space=ActionSpace(list(range(3))),
                 config=config,
                 network=QmixQNetNetwork(config=config),
+                name=f"Agent-[{i + 1:03d}]",
             )
-            for _ in range(config.n_agents)
+            for i in range(config.n_agents)
         ]
         self.config = config
 

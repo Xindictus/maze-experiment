@@ -48,13 +48,11 @@ class QmixTrainer(Trainer):
 
     def train(self) -> None:
         Logger().debug(f"Buffer size: {len(self.buffer)}")
-        batch = self.buffer.sample(self.config.batch_sample_size)
+        batch = self.buffer.sample(self.config.batch_size)
 
         Logger().debug(f"actions shape: {batch["actions"].shape}")
-        # Logger().info(f"actions unique: {np.unique(batch["actions"])}")
-        # Logger().info(f"avail_actions shape: {batch["avail_actions"].shape}")
-        self.log_batch_shapes(batch)
-        # Logger().info(batch)
+        Logger().info(f"avail_actions shape: {batch["avail_actions"].shape}")
+        # self.log_batch_shapes(batch)
 
         # For QMIX episode batch
         batch = self._to_device(batch)
@@ -98,9 +96,9 @@ class QmixTrainer(Trainer):
 
         states_input = batch["state"][:, 1:-1]
 
-        Logger().debug(f"chosen_qs: {chosen_qs.shape}")
-        Logger().debug(f"batch['state']: {batch['state'].shape}")
-        Logger().debug(f"batch['state'][:, :-1]: {states_input.shape}")
+        Logger().debug(f"chosen_qs (shape): {chosen_qs.shape}")
+        Logger().debug(f"batch['state'] (shape): {batch['state'].shape}")
+        Logger().debug(f"batch['state'][:, :-1] (shape): {states_input.shape}")
 
         # Mix agent individual Qs into global Q-tot
         # (batch, T, 1)
@@ -109,31 +107,32 @@ class QmixTrainer(Trainer):
             states_input.to(self.config.device),
         )
 
-        Logger().debug(f"target_max_qvals: {target_max_qvals.shape}")
-        Logger().debug(f"target_states: {batch["state"][:, 1:].shape}")
+        Logger().debug(f"target_max_qvals (shape): {target_max_qvals.shape}")
+        Logger().debug(f"target_states (shape): {batch["state"][:, 1:].shape}")
 
         target_q_tot = self.target_mixer(
             target_max_qvals[:, :-1].to(self.config.device),
             states_input.to(self.config.device),
         )
 
-        Logger().debug(f"rewards: {rewards.shape}")
-        Logger().debug(f"dones: {dones.shape}")
+        Logger().debug(f"rewards (shape): {rewards.shape}")
+        Logger().debug(f"dones (shape): {dones.shape}")
         Logger().debug(f"target_q_tot: {target_q_tot.shape}")
 
         # TD target
         # (batch, T, 1)
-        Logger().debug(f"rewards: {rewards.shape}")
-        Logger().debug(f"dones: {dones.shape}")
-        Logger().debug(f"target_q_tot: {target_q_tot.shape}")
-        Logger().debug(f"target_q_tot[:, :-1]: {target_q_tot[:, :-1].shape}")
-
         targets = rewards + self.config.gamma * (1 - dones) * target_q_tot
 
         # TD loss
         # (batch, T, 1)
         td_error = chosen_q_tot - targets.detach()
-        masked_td_error = td_error * mask.unsqueeze(-1)
+
+        # Align time dim to td_error
+        if mask.size(1) != td_error.size(1):
+            mask = mask[:, : td_error.size(1)]
+
+        masked_td_error = td_error * mask
+        # masked_td_error = td_error * mask.unsqueeze(-1)
         loss = (masked_td_error**2).sum() / mask.sum()
 
         Logger().info(f"Loss: {loss}")

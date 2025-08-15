@@ -103,7 +103,7 @@ class QmixRunner:
                 """
                 env_actions = experiment.get_env_actions(actions=actions)
 
-                Logger().info(f"actions: {actions}")
+                Logger().debug(f"actions: {actions}")
 
                 timed_out = (
                     time.time() - start_game_time - redundant_end_duration
@@ -151,16 +151,13 @@ class QmixRunner:
                     "done": done,
                 }
 
-                Logger().debug("--------------------")
-                Logger().debug(transition)
-                Logger().debug("--------------------")
+                Logger().debug(f"Transition: {transition}")
 
+                # Append to our buffer episode only when it's train blocks
+                # TODO: if mode == "train":
                 episode.append(transition)
-
-                Logger().debug(f"Episode length: {len(episode)}")
-                Logger().debug(
-                    f"Max Episode length: {self.config.qmix.batch_episode_size}"
-                )
+                log_msg = f"[Round {round}] Episode size: {len(episode)}"
+                Logger().debug(log_msg)
 
                 if len(episode) == self.config.qmix.batch_episode_size:
                     self.replay_buffer.add(
@@ -195,16 +192,11 @@ class QmixRunner:
                 # Packs leftover transitions into an episode
                 # self.replay_buffer.add(self.pack_episode(episode=episode))
 
-                Logger().debug(
-                    f"Buffer size runner: {len(self.replay_buffer)}"
-                )
+                Logger().debug(f"Buffer size: {len(self.replay_buffer)}")
 
-                if (
-                    len(self.replay_buffer)
-                    >= self.config.qmix.batch_sample_size
-                ):
+                if len(self.replay_buffer) >= self.config.qmix.batch_size:
+                    Logger().info("Training...")
                     for _ in range(self.config.experiment.epochs):
-                        Logger().info("Training...")
                         self.trainer.train()
 
     def pack_episode(self, episode: List[Dict]) -> Dict:

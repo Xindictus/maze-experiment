@@ -14,9 +14,13 @@ class QmixAgent(Agent):
         action_space: ActionSpace,
         config: QmixBaseConfig,
         network: QmixNetwork,
+        name: str,
     ):
         super().__init__(
-            action_space=action_space, config=config, network=network
+            action_space=action_space,
+            config=config,
+            network=network,
+            name=name,
         )
         # Initialize target network with network as base
         self.target_network = self._build_target_network()
@@ -34,9 +38,11 @@ class QmixAgent(Agent):
         return self.network.parameters()
 
     def select_action(self, obs: T.Tensor, epsilon: float) -> int:
-        Logger().debug(f"obs shape: {obs.shape}, values: {obs}")
+        Logger().debug(f"[{self.name}] Observation shape: {obs.shape}")
+        Logger().debug(f"[{self.name}] Observation values: {obs}")
+
         q_values = self.forward(obs)
-        Logger().debug(f"q_values: {q_values}")
+        Logger().debug(f"[{self.name}] Q-Values: {q_values}")
 
         if T.rand(1).item() < epsilon:
             return T.randint(0, q_values.shape[-1], (1,)).item()

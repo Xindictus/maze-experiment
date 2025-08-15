@@ -37,11 +37,11 @@ class EpisodeReplayBuffer(ReplayBufferBase):
 
     def _encode_sample(self, indices: List[int]) -> Dict[str, np.ndarray]:
         Logger().debug(f"Indices: {indices}")
+
         batch = {}
 
         for key in self.storage[0].keys():
             batch[key] = [self.storage[i][key] for i in indices]
 
-        Logger().debug(batch)
         return {k: np.array(v) for k, v in batch.items()}
         # return {k: T.stack(v) for k, v in batch.items()}
