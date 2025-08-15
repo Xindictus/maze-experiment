@@ -2,6 +2,7 @@ import time
 from typing import Dict, List
 
 import numpy as np
+from tqdm import tqdm
 
 from src.config.full_config import FullConfig
 from src.game.experiment import Experiment
@@ -154,6 +155,7 @@ class QmixRunner:
                 Logger().debug(f"Transition: {transition}")
 
                 # Append to our buffer episode only when it's train blocks
+                # TODO: success only buffer?
                 # TODO: if mode == "train":
                 episode.append(transition)
                 log_msg = f"[Round {round}] Episode size: {len(episode)}"
@@ -196,8 +198,18 @@ class QmixRunner:
 
                 if len(self.replay_buffer) >= self.config.qmix.batch_size:
                     Logger().info("Training...")
-                    for _ in range(self.config.experiment.epochs):
-                        self.trainer.train()
+
+                    pbar = tqdm(
+                        range(self.config.experiment.epochs),
+                        desc="Epochs",
+                        dynamic_ncols=True,
+                    )
+
+                    for e in pbar:
+                        loss = self.trainer.train()
+
+                        if e % 10 == 0:
+                            pbar.set_postfix(loss=f"{loss:.4f}")
 
     def pack_episode(self, episode: List[Dict]) -> Dict:
         t = len(episode)

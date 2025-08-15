@@ -51,7 +51,7 @@ class QmixTrainer(Trainer):
         batch = self.buffer.sample(self.config.batch_size)
 
         Logger().debug(f"actions shape: {batch["actions"].shape}")
-        Logger().info(f"avail_actions shape: {batch["avail_actions"].shape}")
+        Logger().debug(f"avail_actions shape: {batch["avail_actions"].shape}")
         # self.log_batch_shapes(batch)
 
         # For QMIX episode batch
@@ -135,7 +135,7 @@ class QmixTrainer(Trainer):
         # masked_td_error = td_error * mask.unsqueeze(-1)
         loss = (masked_td_error**2).sum() / mask.sum()
 
-        Logger().info(f"Loss: {loss}")
+        Logger().debug(f"Loss: {loss}")
 
         # Optimizer
         self.optimizer.zero_grad()
@@ -146,6 +146,8 @@ class QmixTrainer(Trainer):
         self.training_steps += 1
         if self.training_steps % self.config.target_update_interval == 0:
             self._update_targets()
+
+        return loss
 
     def _get_q_values(self, mac: MAC, batch: Dict[str, T.Tensor]) -> T.Tensor:
         """
