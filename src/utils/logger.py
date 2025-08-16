@@ -1,6 +1,7 @@
 import inspect
 import logging
 from datetime import datetime
+from typing import Optional
 
 from src.utils.settings import Settings
 from src.utils.singleton import Singleton
@@ -29,6 +30,7 @@ class Logger(metaclass=Singleton):
 
     _logger: logging.Logger = None
     _no_fd_logger: str = "Moving on without a file logger"
+    _override_context: Optional[str] = None
 
     def __init__(
         self, log_lvl: int = logging.DEBUG, name: str = "maze-3d"
@@ -78,6 +80,13 @@ class Logger(metaclass=Singleton):
                 Logger._logger.info(self._no_fd_logger)
 
     def _get_context(self) -> str:
+        # Only for certain cases needed in static methods, not
+        # a true override
+        if self._override_context:
+            context = self._override_context
+            self._override_context = None
+            return context
+
         # Skip the logger methods and try to find the real caller
         for frame_info in inspect.stack()[2:]:
             caller = frame_info.frame.f_locals.get("self")
@@ -88,6 +97,10 @@ class Logger(metaclass=Singleton):
             if "function" in frame_info and frame_info.function != "<module>":
                 return f"[{frame_info.function}]"
         return "[\\m/]"
+
+    def with_context(self, context: str) -> "Logger":
+        self._override_context = f"[{context}]"
+        return self
 
     def debug(self, msg: str):
         context = self._get_context()
