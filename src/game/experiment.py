@@ -38,19 +38,19 @@ class Experiment:
         # Normalize observation features - 8 features expected
         norm_observation = [0] * len(observation)
 
-        # Ball x & y position from -2/2 to -1/1
+        # Ball z & x position
         norm_observation[0] = self._normalize_feature(observation[0], -2, 2)
         norm_observation[1] = self._normalize_feature(observation[1], -2, 2)
 
-        # Ball x & y velocity from -0/2 to 0/1
+        # Ball z & x velocity
         norm_observation[2] = self._normalize_feature(observation[2], -4, 4)
         norm_observation[3] = self._normalize_feature(observation[3], -4, 4)
 
-        # Board angle f & t from -30/30 to -1/1
+        # Board angle z & x
         norm_observation[4] = self._normalize_feature(observation[4], -30, 30)
         norm_observation[5] = self._normalize_feature(observation[5], -30, 30)
 
-        # Board f & t velocity from -1/1 to -1/1
+        # Board z & x angular speed
         norm_observation[6] = self._normalize_feature(
             observation[6], -1.9, 1.9
         )
@@ -60,6 +60,7 @@ class Experiment:
 
         return np.clip(norm_observation, -1.3, 1.3)
 
+    # TODO: Ask about local observation order
     def get_local_obs(self, agent_id: int) -> np.ndarray:
         if agent_id == 0:
             return self._global_obs.slice([0, 2, 4, 6])
