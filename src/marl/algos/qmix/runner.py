@@ -1,4 +1,5 @@
 import time
+from collections import deque
 from typing import Dict, List
 
 import numpy as np
@@ -65,14 +66,18 @@ class QmixRunner:
             is_paused = True
             while is_paused:
                 Logger().info("Game Reseting")
-                raw_obs, setting_up_duration, is_paused = self.maze.reset(mode)
+                prev_raw_obs, setting_up_duration, is_paused = self.maze.reset(
+                    mode
+                )
 
             experiment = Experiment(self.config.qmix)
-            normalized_obs = experiment._normalize_global_state(raw_obs)
-            experiment.global_observation = normalized_obs
+            prev_normalized_obs = experiment._normalize_global_state(
+                prev_raw_obs
+            )
+            experiment.global_observation = prev_normalized_obs
 
-            Logger().debug(normalized_obs.shape)
-            Logger().debug(normalized_obs)
+            Logger().debug(prev_normalized_obs.shape)
+            Logger().debug(prev_normalized_obs)
             Logger().debug(experiment.global_observation)
 
             local_obs = [
@@ -86,11 +91,13 @@ class QmixRunner:
             timed_out = False
             redundant_end_duration = 0
             self.duration_pause_total = 0
-            episode = []
+            episode = deque(maxlen=self.config.qmix.batch_episode_size)
 
-            start_game_time = time.time()
+            t_start = time.perf_counter()
 
             while True:
+                t1 = time.perf_counter()
+
                 step_counter += 1
 
                 actions = self.mac.select_actions(
@@ -107,7 +114,7 @@ class QmixRunner:
                 Logger().debug(f"actions: {actions}")
 
                 timed_out = (
-                    time.time() - start_game_time - redundant_end_duration
+                    time.perf_counter() - t_start - redundant_end_duration
                     >= self.max_game_duration
                 )
 
@@ -116,26 +123,41 @@ class QmixRunner:
                 )
 
                 (
-                    raw_obs_next,
+                    next_raw_obs,
                     reward,
                     done,
                     fps,
                     pause_duration,
                     action_pair,
                     internet_delay,
+                    dist_travelled,
                 ) = self.maze.step(
                     action_agent=env_actions,
                     timed_out=timed_out,
                     action_duration=self.action_duration,
+                    prev_obs=prev_raw_obs,
                     mode=mode,
                     text=display_text,
+                    t1=t1,
                 )
+
+                t5 = time.perf_counter()
+                elapsed_ms = (t5 - t1) * 1000
+                elapsed_ms2 = (t5 - t_start) * 1000
+                Logger().debug(f"Elapsed (t1): {elapsed_ms:.2f} ms")
+                Logger().debug(f"Elapsed (tStart): {elapsed_ms2:.2f} ms")
 
                 redundant_end_duration += pause_duration
                 self.duration_pause_total += pause_duration
 
-                Logger().debug(raw_obs_next.shape)
-                experiment.global_observation = raw_obs_next
+                # Normalize global state
+                normalized_obs_next = experiment._normalize_global_state(
+                    next_raw_obs
+                )
+                experiment.global_observation = normalized_obs_next
+
+                Logger().debug(f"Normalized OBS (Next): {normalized_obs_next}")
+
                 next_local_obs = [
                     experiment.get_local_obs(agent_id)
                     for agent_id in range(self.config.qmix.n_agents)
@@ -156,16 +178,15 @@ class QmixRunner:
 
                 # Append to our buffer episode only when it's train blocks
                 # TODO: success only buffer?
-                # TODO: if mode == "train":
-                episode.append(transition)
-                log_msg = f"[Round {round}] Episode size: {len(episode)}"
-                Logger().debug(log_msg)
+                if mode == "train":
+                    episode.append(transition)
+                    log_msg = f"[Round {round}] Episode size: {len(episode)}"
+                    Logger().debug(log_msg)
 
                 if len(episode) == self.config.qmix.batch_episode_size:
                     self.replay_buffer.add(
-                        episode=self.pack_episode(episode=episode)
+                        episode=self.pack_episode(episode=list(episode))
                     )
-                    episode = []
 
                 episode_reward += reward
 
@@ -174,6 +195,10 @@ class QmixRunner:
                         Logger().info("Goal reached")
                     else:
                         Logger().info("Timeout")
+
+                    end = time.perf_counter()
+                    Logger().info(f"Round duration: {(end - t_start):0.2f}")
+
                     time.sleep(self.popup_window_time)
                     break
 
@@ -182,6 +207,7 @@ class QmixRunner:
                 global_state = next_global_state
 
             self.last_score = episode_reward
+            # TODO: Doesn't work
             self.best_game_score = max(self.best_game_score, episode_reward)
 
             Logger().info(
@@ -191,10 +217,12 @@ class QmixRunner:
             )
 
             if mode == "train":
-                # Packs leftover transitions into an episode
-                # self.replay_buffer.add(self.pack_episode(episode=episode))
+                # TODO: Packs leftover transitions into an episode
+                self.replay_buffer.add(
+                    self.pack_episode(episode=list(episode))
+                )
 
-                Logger().debug(f"Buffer size: {len(self.replay_buffer)}")
+                Logger().info(f"Buffer size: {len(self.replay_buffer)}")
 
                 if len(self.replay_buffer) >= self.config.qmix.batch_size:
                     Logger().info("Training...")
