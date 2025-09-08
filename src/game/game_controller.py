@@ -1,3 +1,4 @@
+import math
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -48,7 +49,8 @@ class GameController:
         try:
             self.session.post(endpoint, json=json_config).json()
         except Exception as e:
-            Logger().exception(f"Failed to send config: {e}")
+            Logger().error(f"Failed to send config: {e}")
+            exit(1)
 
     def set_host(self) -> None:
         endpoint: str = f"{self.config.network.ip_distributor}/set_server_host"
@@ -88,21 +90,25 @@ class GameController:
                 if method == "GET":
                     res = self.session.get(url).json()
                 else:
+                    t10 = time.perf_counter()
                     res = self.session.post(url, json=data).json()
+                    t11 = time.perf_counter()
+
+                    Logger().debug(f"{((t11-t10) * 1000):.2f} ms")
 
                 if res.get("command") == "player_ready":
                     continue
                 return res
             except Exception as e:
-                Logger().error(f"/send failed: {e}")
+                Logger().error(f"/send [{namespace}] failed: {e}")
                 Logger().warning("Retrying after agent ready...")
                 self.agent_ready()
                 time.sleep(0.1)
 
     def reset(self, type: str) -> Tuple[np.ndarray, float, bool]:
-        start_time = time.time()
+        start_time = time.perf_counter()
         res = self.send(self.reset_endpoints[type])
-        set_up_time = time.time() - start_time
+        set_up_time = time.perf_counter() - start_time
 
         return (np.asarray(res["observation"]), set_up_time, res["pause"])
 
@@ -122,8 +128,10 @@ class GameController:
         action_agent: List[int],
         timed_out: Optional[float],
         action_duration: float,
+        prev_obs: np.ndarray,
         mode: str,
         text: str,
+        t1,
     ) -> Tuple[np.ndarray, float, bool, float, float, List[int], float]:
         """
         Performs the action of the agent to the environment for
@@ -146,6 +154,8 @@ class GameController:
                     action_list
                 ]
         """
+        t2 = time.perf_counter()
+
         payload = {
             "action_agent": int(action_agent[0]),
             "action_duration": action_duration,
@@ -155,13 +165,16 @@ class GameController:
             "timed_out": timed_out,
         }
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         Logger().debug(f"-- UNITY STEP -- {payload}")
+        t3 = time.perf_counter()
         res = self.send("/step_two_agents", method="POST", data=payload)
-        delay = time.time() - start_time
+        t4 = time.perf_counter()
+        delay = time.perf_counter() - start_time
 
         self.internet_delay.append(delay)
         self.observation = np.array(res["observation"])
+
         # true if goal_reached OR timeout
         self.done = res["done"]
 
@@ -170,7 +183,29 @@ class GameController:
         fps = res["fps"]
         human_action = res["human_action"]
         internet_pause = delay - duration_pause - action_duration
-        reward = RewardEngine.compute_reward(self.done, timed_out)
+
+        def get_distance_travelled(prev_obs, obs):
+            """
+            compounds the distance travelled by the ball
+            :param dist_travel: previous distance travelled
+            :param prev_observation: previous observation
+            :param observation: next observation
+            :return: the total travelled distance
+            """
+            return math.sqrt(
+                (prev_obs[0] - obs[0]) * (prev_obs[0] - obs[0])
+                + (prev_obs[1] - obs[1]) * (prev_obs[1] - obs[1])
+            )
+
+        dist_travelled = get_distance_travelled(prev_obs, self.observation)
+
+        reward = RewardEngine.compute_reward(
+            self.done, timed_out, dist_travelled
+        )
+
+        Logger().debug(
+            f"{((t2 - t1) * 1000):.2f}ms, {((t3 - t2) * 1000):.2f}ms, {((t4 - t3) * 1000):.2f}ms, D {(delay * 1000):.2f}ms, ID {(internet_pause * 1000):.2f}ms"
+        )
 
         return (
             self.observation,
@@ -180,4 +215,5 @@ class GameController:
             duration_pause,
             [agent_action, human_action],
             internet_pause,
+            dist_travelled,
         )

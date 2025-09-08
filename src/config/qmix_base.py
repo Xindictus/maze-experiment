@@ -8,7 +8,8 @@ from src.config.validators import must_be_power_of_two
 
 class QmixBaseConfig(BaseModel):
     # The number of transition states saved in each episode
-    batch_episode_size: int = Field(default=16, ge=2, le=4096)
+    batch_episode_size: int = Field(default=1, ge=1, le=4096)
+    # batch_episode_size: int = Field(default=16, ge=2, le=4096)
 
     # The sample sizes to pick each time
     batch_size: int = Field(default=32, ge=2, le=4096)
@@ -82,7 +83,10 @@ class QmixBaseConfig(BaseModel):
     # Restrict values to power of 2
     # TODO: hidden dim
     _check_power = field_validator(
-        "batch_episode_size", "batch_size", "embed_dim", "hypernet_embed"
+        "batch_size",
+        "embed_dim",
+        "hypernet_embed",
+        # "batch_episode_size", "batch_size", "embed_dim", "hypernet_embed"
     )(must_be_power_of_two)
 
     @model_validator(mode="after")

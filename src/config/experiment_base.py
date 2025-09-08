@@ -11,6 +11,7 @@ class ExperimentBaseConfig(BaseModel):
     # The size of the buffer to initialize with
     buffer_memory_size: int = Field(default=3500)
 
+    # TODO: update_cycles
     # Number of train epochs
     epochs: int = Field(default=200)
 
