@@ -12,7 +12,7 @@ class QmixBaseConfig(BaseModel):
     # batch_episode_size: int = Field(default=16, ge=2, le=4096)
 
     # The sample sizes to pick each time
-    batch_size: int = Field(default=32, ge=2, le=4096)
+    batch_size: int = Field(default=256, ge=2, le=4096)
 
     # Default device to be used
     # TODO: Restrict to cuda/cpu choices
@@ -50,7 +50,7 @@ class QmixBaseConfig(BaseModel):
     input_dim: int = Field(default=4)
 
     # Learning rate
-    learning_rate: float = Field(default=0.001, ge=1e-6, le=1)
+    learning_rate: float = Field(default=0.0003, ge=1e-6, le=1)
 
     # Number of actions
     n_actions: int = Field(default=3)

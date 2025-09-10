@@ -9,11 +9,11 @@ class ExperimentBaseConfig(BaseModel):
     agent: str = Field(default="sac")
 
     # The size of the buffer to initialize with
-    buffer_memory_size: int = Field(default=3500)
+    buffer_memory_size: int = Field(default=1e6)
 
     # TODO: update_cycles
     # Number of train epochs
-    epochs: int = Field(default=200)
+    epochs: int = Field(default=4000)
 
     # Number of rounds/games per block
     games_per_block: int = Field(default=10)
