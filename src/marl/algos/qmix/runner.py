@@ -13,6 +13,41 @@ from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
 from src.utils.logger import Logger
 
 
+class EpsilonDecay:
+    def __init__(self, eps0: float, eps_min: float, X: int, p: float):
+        # TODO: PYDOC
+        self.eps0 = eps0
+        self.eps_min = eps_min
+        self.X = X
+        self.p = p
+        # current step
+        self.t = 0
+        self.epsilon = eps0
+
+    def step(self) -> float:
+        # Advance one round and return the new epsilon.
+        if self.t >= self.X:
+            self.epsilon = self.eps_min
+            return self.epsilon
+
+        # compute factor
+        num = (
+            self.eps_min
+            + (self.eps0 - self.eps_min)
+            * (1 - (self.t + 1) / self.X) ** self.p
+        )
+        den = (
+            self.eps_min
+            + (self.eps0 - self.eps_min) * (1 - self.t / self.X) ** self.p
+        )
+        d_t = num / den
+
+        # update epsilon
+        self.epsilon *= d_t
+        self.t += 1
+        return self.epsilon
+
+
 class QmixRunner:
     def __init__(
         self,
@@ -42,6 +77,17 @@ class QmixRunner:
         self.last_score = 0
         self.duration_pause_total = 0
         self.current_block = 0
+        self.epsilon = self.config.qmix.epsilon
+        # self.decay_rate = pow(
+        #     0.01 / self.epsilon,
+        #     1 / (self.max_blocks * self.games_per_block)
+        # )
+        self.decay = EpsilonDecay(
+            eps0=self.epsilon,
+            eps_min=0.01,
+            X=(self.max_blocks * self.games_per_block),
+            p=0.5,
+        )
 
     def run(self):
         for block in range(self.max_blocks):
@@ -101,7 +147,9 @@ class QmixRunner:
                 step_counter += 1
 
                 actions = self.mac.select_actions(
-                    experiment, epsilon=self.config.qmix.epsilon
+                    experiment,
+                    epsilon=self.epsilon,
+                    mode=mode,
                 )
 
                 """
@@ -213,7 +261,7 @@ class QmixRunner:
             Logger().info(
                 f"[{mode.upper()}] Block {block_number} | Round {round} | "
                 f"Reward: {episode_reward:.2f} | Steps: {step_counter} | "
-                f"Best: {self.best_game_score:.2f}"
+                f"Best: {self.best_game_score:.2f} | Epsilon: {self.epsilon}"
             )
 
             if mode == "train":
@@ -238,6 +286,8 @@ class QmixRunner:
 
                         if e % 10 == 0:
                             pbar.set_postfix(loss=f"{loss:.4f}")
+
+                self.epsilon = self.decay.step()
 
     def pack_episode(self, episode: List[Dict]) -> Dict:
         t = len(episode)

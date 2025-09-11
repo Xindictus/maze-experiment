@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 
 import torch as T
 
@@ -39,7 +39,12 @@ class MAC:
         """
         return self.agents[agent_id].network(obs)
 
-    def select_actions(self, env: Experiment, epsilon: float) -> List[int]:
+    def select_actions(
+        self,
+        env: Experiment,
+        epsilon: float,
+        mode: Literal["test", "train"] = "test",
+    ) -> List[int]:
         """
         Selects agent actions using epsilon-greedy.
 
@@ -53,7 +58,9 @@ class MAC:
                 config=self.config,
                 normalized=env.get_local_obs(agent_id),
             )
-            action = agent.select_action(obs.to_tensor(), epsilon)
+            action = agent.select_action(
+                obs=obs.to_tensor(), epsilon=epsilon, mode=mode
+            )
             actions.append(action)
 
         return actions

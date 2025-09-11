@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch as T
 
 from src.config.qmix_base import QmixBaseConfig
@@ -37,15 +39,21 @@ class QmixAgent(Agent):
     def parameters(self):
         return self.network.parameters()
 
-    def select_action(self, obs: T.Tensor, epsilon: float) -> int:
+    def select_action(
+        self,
+        obs: T.Tensor,
+        epsilon: float,
+        mode: Literal["test", "train"] = "test",
+    ) -> int:
         Logger().debug(f"[{self.name}] Observation shape: {obs.shape}")
         Logger().debug(f"[{self.name}] Observation values: {obs}")
 
         q_values = self.forward(obs)
         Logger().debug(f"[{self.name}] Q-Values: {q_values}")
 
-        if T.rand(1).item() < epsilon:
-            return T.randint(0, q_values.shape[-1], (1,)).item()
+        if mode == "train":
+            if T.rand(1).item() < epsilon:
+                return T.randint(0, q_values.shape[-1], (1,)).item()
 
         return T.argmax(q_values, dim=-1).item()
 
