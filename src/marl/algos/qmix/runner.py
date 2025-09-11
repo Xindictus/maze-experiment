@@ -3,6 +3,7 @@ from collections import deque
 from typing import Dict, List
 
 import numpy as np
+from joblib import dump
 from tqdm import tqdm
 
 from src.config.full_config import FullConfig
@@ -78,6 +79,11 @@ class QmixRunner:
         self.duration_pause_total = 0
         self.current_block = 0
         self.epsilon = self.config.qmix.epsilon
+
+        # TODO: Dirty
+        self.epsilons = []
+        self.losses = []
+        self.rewards = []
         # self.decay_rate = pow(
         #     0.01 / self.epsilon,
         #     1 / (self.max_blocks * self.games_per_block)
@@ -102,6 +108,12 @@ class QmixRunner:
 
         Logger().info("QMIX Training Complete")
         self.maze.finished()
+
+        # TODO: Dirty
+        ts = int(time.time())
+        dump(self.epsilons, f"epsilons_{ts}.joblib", compress=("gzip", 5))
+        dump(self.rewards, f"rewards_{ts}.joblib", compress=("gzip", 5))
+        dump(self.losses, f"losses_{ts}.joblib", compress=("gzip", 5))
 
     def run_block(self, block_number: int, mode: str):
         # max_rounds = int(self.games_per_block / 2)
@@ -264,6 +276,10 @@ class QmixRunner:
                 f"Best: {self.best_game_score:.2f} | Epsilon: {self.epsilon}"
             )
 
+            # TODO: Dirty
+            self.epsilons.append(self.epsilon)
+            self.rewards.append(episode_reward)
+
             if mode == "train":
                 # TODO: Packs leftover transitions into an episode
                 self.replay_buffer.add(
@@ -271,6 +287,9 @@ class QmixRunner:
                 )
 
                 Logger().info(f"Buffer size: {len(self.replay_buffer)}")
+
+                # TODO: Dirty
+                rb_losses = []
 
                 if len(self.replay_buffer) >= self.config.qmix.batch_size:
                     Logger().info("Training...")
@@ -285,8 +304,17 @@ class QmixRunner:
                         loss = self.trainer.train()
 
                         if e % 10 == 0:
+                            # TODO: Dirty
+                            rb_losses.append(loss)
                             pbar.set_postfix(loss=f"{loss:.4f}")
 
+                self.losses.append(
+                    {
+                        "block": block_number,
+                        "round": round,
+                        "losses": rb_losses,
+                    }
+                )
                 self.epsilon = self.decay.step()
 
     def pack_episode(self, episode: List[Dict]) -> Dict:
