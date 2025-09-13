@@ -1,3 +1,7 @@
+import json
+from datetime import datetime
+from pathlib import Path
+
 from pydantic import BaseModel
 
 from src.config.experiment_base import ExperimentBaseConfig
@@ -25,6 +29,20 @@ class FullConfig(BaseModel):
     network: NetworkConfig
     qmix: QmixBaseConfig
     sac: SACBaseConfig
+    date: str
+    out_dir: str
+
+
+def save_json_config(cfg: FullConfig, path: str | Path) -> None:
+    Path(path).write_text(
+        json.dumps(
+            cfg.model_dump(mode="json"),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
 
 def build_config(
@@ -77,6 +95,13 @@ def build_config(
     sac_config = sac_cls.model_validate(merged_sac)
     qmix_config = QmixBaseConfig(**qmix_over)
 
+    today: str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir: str = f"out/{today}"
+    config_out: str = f"{out_dir}/config.json"
+
+    # Creates the folder to save all experiment outputs
+    Path(out_dir).mkdir(exist_ok=True)
+
     config = FullConfig(
         experiment=exp_config,
         game=game_config,
@@ -84,6 +109,11 @@ def build_config(
         network=net_config,
         sac=sac_config,
         qmix=qmix_config,
+        date=today,
+        out_dir=out_dir,
     )
+
+    # Save current experiment config
+    save_json_config(config, config_out)
 
     return config

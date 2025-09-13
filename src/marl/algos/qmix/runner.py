@@ -59,6 +59,7 @@ class QmixRunner:
         replay_buffer: EpisodeReplayBuffer,
     ):
         self.config = config
+        self.out_dir = config.out_dir
         self.maze = game_controller
         self.mac = mac
         self.trainer = trainer
@@ -110,10 +111,21 @@ class QmixRunner:
         self.maze.finished()
 
         # TODO: Dirty
-        ts = int(time.time())
-        dump(self.epsilons, f"epsilons_{ts}.joblib", compress=("gzip", 5))
-        dump(self.rewards, f"rewards_{ts}.joblib", compress=("gzip", 5))
-        dump(self.losses, f"losses_{ts}.joblib", compress=("gzip", 5))
+        dump(
+            self.epsilons,
+            f"{self.out_dir}/epsilons.joblib",
+            compress=("gzip", 5),
+        )
+        dump(
+            self.rewards,
+            f"{self.out_dir}/rewards.joblib",
+            compress=("gzip", 5),
+        )
+        dump(
+            self.losses,
+            f"{self.out_dir}/losses.joblib",
+            compress=("gzip", 5),
+        )
 
     def run_block(self, block_number: int, mode: str):
         # max_rounds = int(self.games_per_block / 2)
@@ -305,7 +317,7 @@ class QmixRunner:
 
                         if e % 10 == 0:
                             # TODO: Dirty
-                            rb_losses.append(loss)
+                            # rb_losses.append(loss)
                             pbar.set_postfix(loss=f"{loss:.4f}")
 
                 self.losses.append(
