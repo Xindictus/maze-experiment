@@ -50,6 +50,7 @@ class QmixTrainer(Trainer):
         Logger().debug(f"Buffer size: {len(self.buffer)}")
         batch = self.buffer.sample(self.config.batch_size)
 
+        Logger().debug(f"Batch: {batch}")
         Logger().debug(f"actions shape: {batch["actions"].shape}")
         Logger().debug(f"avail_actions shape: {batch["avail_actions"].shape}")
         # self.log_batch_shapes(batch)
@@ -60,6 +61,7 @@ class QmixTrainer(Trainer):
         # (batch, T)
         rewards = batch["rewards"][:, :-1]
 
+        # TODO: Revisit this
         # (batch, T, n_agents, 1)
         actions = batch["actions"][:, :-1]
 

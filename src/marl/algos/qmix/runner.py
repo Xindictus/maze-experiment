@@ -89,12 +89,12 @@ class QmixRunner:
         #     0.01 / self.epsilon,
         #     1 / (self.max_blocks * self.games_per_block)
         # )
-        self.decay = EpsilonDecay(
-            eps0=self.epsilon,
-            eps_min=0.01,
-            X=(self.max_blocks * self.games_per_block),
-            p=0.5,
-        )
+        # self.decay = EpsilonDecay(
+        #     eps0=self.epsilon,
+        #     eps_min=0.01,
+        #     X=(self.max_blocks * self.games_per_block),
+        #     p=0.5,
+        # )
 
     def run(self):
         for block in range(self.max_blocks):
@@ -131,14 +131,13 @@ class QmixRunner:
         )
 
     def run_block(self, block_number: int, mode: str):
-        # max_rounds = int(self.games_per_block / 2)
         max_rounds = int(self.games_per_block)
-        # max_rounds = 1
 
         for round in range(max_rounds):
             is_paused = True
             while is_paused:
                 Logger().info("Game Reseting")
+                Logger().info(f"Starting block {block_number}, round {round}")
                 prev_raw_obs, setting_up_duration, is_paused = self.maze.reset(
                     mode
                 )
@@ -263,6 +262,8 @@ class QmixRunner:
                         episode=self.pack_episode(episode=list(episode))
                     )
 
+                Logger().debug(f"Replay buffer: {self.replay_buffer.list()}")
+
                 episode_reward += reward
 
                 if done:
@@ -320,7 +321,7 @@ class QmixRunner:
 
                         if e % 10 == 0:
                             # TODO: Dirty
-                            # rb_losses.append(loss)
+                            rb_losses.append(loss)
                             pbar.set_postfix(loss=f"{loss:.4f}")
 
                 self.losses.append(
@@ -330,7 +331,10 @@ class QmixRunner:
                         "losses": rb_losses,
                     }
                 )
-                self.epsilon = self.decay.step()
+                # self.epsilon = self.decay.step()
+                self.epsilon = self.config.qmix.epsilon * (
+                    0.85 ** ((block_number + 1) * (round + 1))
+                )
 
     def pack_episode(self, episode: List[Dict]) -> Dict:
         t = len(episode)
@@ -350,7 +354,9 @@ class QmixRunner:
         # TODO: static avail_actions. [T + 1, N, n_actions]
         # TODO: needs to be dynamic based on agent initialization.
         # todo: for now hardcoding it
-        avail_actions = np.ones((t + 1, N, 3), dtype=np.float32)
+        avail_actions = np.ones(
+            (t + 1, N, self.config.qmix.n_actions), dtype=np.float32
+        )
 
         for t_step in range(t):
             transition = episode[t_step]

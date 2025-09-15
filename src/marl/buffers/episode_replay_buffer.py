@@ -35,6 +35,9 @@ class EpisodeReplayBuffer(ReplayBufferBase):
 
         self.next_idx = (self.next_idx + 1) % self.mem_size
 
+    def list(self) -> List[Dict[str, Any]]:
+        return self.storage
+
     def _encode_sample(self, indices: List[int]) -> Dict[str, np.ndarray]:
         Logger().debug(f"Indices: {indices}")
 
