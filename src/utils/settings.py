@@ -23,9 +23,7 @@ class Settings(BaseSettings):
         default_factory=lambda: str(Path(__file__).resolve().parent.parent)
     )
 
-    file_handler: bool = Field(
-        False, json_schema_extra={"env": "FILE_HANDLER"}
-    )
+    file_handler: bool = Field(True, json_schema_extra={"env": "FILE_HANDLER"})
 
     def get_settings(self) -> Dict[str, any]:
         """_summary_
@@ -45,22 +43,3 @@ class Settings(BaseSettings):
         }
 
         return filtered_settings
-
-    def get_confluence_creds(self) -> Dict[str, str]:
-        """_summary_
-
-        Returns:
-            Dict[str, str]: _description_
-        """
-        # The following is used as a separate variable to avoid
-        # noqa: E231 of flake8
-        url = f"https://{self.confluence_domain}.atlassian.net"  # noqa: E231
-
-        return {
-            "v1": {
-                "baseUrl": url,
-                "space": self.confluence_doc_space,
-                "token": self.confluence_access_token,
-                "username": self.confluence_username,
-            }
-        }

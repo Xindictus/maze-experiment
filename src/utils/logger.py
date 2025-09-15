@@ -63,11 +63,12 @@ class Logger(metaclass=Singleton):
             Logger._logger.addHandler(console_handler)
 
             try:
+                # TODO: Switch that to properly use settings
                 if settings["file_handler"]:
                     # Create a file handler
-                    log_file = "{path}/logs/{date}.log".format(
-                        path=settings["current_dir"],
-                        date=datetime.now().strftime("%Y%m%d"),
+                    log_file = "{path}/../logs/{date}.log".format(
+                        path=settings["project_dir"],
+                        date=datetime.now().strftime("%Y%m%d_%H%M%S"),
                     )
                     file_handler = logging.FileHandler(log_file, "a+", "utf-8")
                     file_handler.setLevel(log_lvl)
