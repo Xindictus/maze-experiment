@@ -107,6 +107,9 @@ class QmixRunner:
             Logger().info(f"Save checkpoint: {block}")
             self.save_chkp()
 
+        Logger().info(f"Final Test Block: {block}")
+        self.run_block(block, mode="test")
+
         Logger().info("QMIX Training Complete")
         self.maze.finished()
 
