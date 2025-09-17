@@ -98,17 +98,14 @@ class QmixRunner:
 
     def run(self):
         for block in range(self.max_blocks):
-            Logger().info(f"Test Block: {block}")
-            self.run_block(block, mode="test")
-
             Logger().info(f"Train Block: {block}")
             self.run_block(block, mode="train")
 
+            Logger().info(f"Test Block: {block}")
+            self.run_block(block, mode="test")
+
             Logger().info(f"Save checkpoint: {block}")
             self.save_chkp()
-
-        Logger().info(f"Final Test Block: {block}")
-        self.run_block(block, mode="test")
 
         Logger().info("QMIX Training Complete")
         self.maze.finished()
