@@ -165,15 +165,17 @@ class QmixRunner:
             t_start = time.perf_counter()
 
             while True:
-                t1 = time.perf_counter()
-
                 step_counter += 1
+
+                action_timer_start = time.perf_counter()
 
                 actions = self.mac.select_actions(
                     experiment,
                     epsilon=self.epsilon,
                     mode=mode,
                 )
+
+                self.action_duration = time.perf_counter() - action_timer_start
 
                 """
                 The game understands actions only in terms of angle
@@ -184,14 +186,23 @@ class QmixRunner:
 
                 Logger().debug(f"actions: {actions}")
 
+                # TODO:
                 timed_out = (
-                    time.perf_counter() - t_start - redundant_end_duration
+                    time.perf_counter()
+                    - t_start
+                    - redundant_end_duration
+                    - self.action_duration
                     >= self.max_game_duration
                 )
 
                 display_text = (
-                    f"Block {block_number}, Round {round}, Step {step_counter}"
+                    f"Block {block_number} | "
+                    + f"Round {round} | "
+                    + f"Step {step_counter} | "
+                    + f"Redundant duration {redundant_end_duration}"
                 )
+
+                Logger().info(display_text)
 
                 (
                     next_raw_obs,
@@ -209,17 +220,10 @@ class QmixRunner:
                     prev_obs=prev_raw_obs,
                     mode=mode,
                     text=display_text,
-                    t1=t1,
                 )
 
-                t5 = time.perf_counter()
-                elapsed_ms = (t5 - t1) * 1000
-                elapsed_ms2 = (t5 - t_start) * 1000
-                Logger().debug(f"Elapsed (t1): {elapsed_ms:.2f} ms")
-                Logger().debug(f"Elapsed (tStart): {elapsed_ms2:.2f} ms")
-
-                redundant_end_duration += pause_duration
-                self.duration_pause_total += pause_duration
+                redundant_end_duration += internet_delay
+                self.duration_pause_total += internet_delay
 
                 # Normalize global state
                 normalized_obs_next = experiment._normalize_global_state(

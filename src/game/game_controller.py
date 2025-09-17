@@ -131,7 +131,6 @@ class GameController:
         prev_obs: np.ndarray,
         mode: str,
         text: str,
-        t1,
     ) -> Tuple[np.ndarray, float, bool, float, float, List[int], float]:
         """
         Performs the action of the agent to the environment for
@@ -154,8 +153,6 @@ class GameController:
                     action_list
                 ]
         """
-        t2 = time.perf_counter()
-
         payload = {
             "action_agent": int(action_agent[0]),
             "action_duration": action_duration,
@@ -167,9 +164,7 @@ class GameController:
 
         start_time = time.perf_counter()
         Logger().debug(f"-- UNITY STEP -- {payload}")
-        t3 = time.perf_counter()
         res = self.send("/step_two_agents", method="POST", data=payload)
-        t4 = time.perf_counter()
         delay = time.perf_counter() - start_time
 
         self.internet_delay.append(delay)
@@ -203,8 +198,11 @@ class GameController:
             self.done, timed_out, dist_travelled
         )
 
-        Logger().debug(
-            f"{((t2 - t1) * 1000):.2f}ms, {((t3 - t2) * 1000):.2f}ms, {((t4 - t3) * 1000):.2f}ms, D {(delay * 1000):.2f}ms, ID {(internet_pause * 1000):.2f}ms"
+        Logger().info(
+            f"Action Duration: {(action_duration * 1000):.2f}ms | "
+            + f"Delay {(delay * 1000):.2f}ms | "
+            + f"Duration Pause {(duration_pause * 1000):.2f}ms | "
+            + f"Internet Pause {(internet_pause * 1000):.2f}ms"
         )
 
         return (
