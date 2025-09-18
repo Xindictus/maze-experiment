@@ -198,7 +198,7 @@ class GameController:
             self.done, timed_out, dist_travelled
         )
 
-        Logger().info(
+        Logger().debug(
             f"Action Duration: {(action_duration * 1000):.2f}ms | "
             + f"Delay {(delay * 1000):.2f}ms | "
             + f"Duration Pause {(duration_pause * 1000):.2f}ms | "

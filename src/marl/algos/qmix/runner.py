@@ -1,5 +1,6 @@
 import time
-from collections import deque
+
+# from collections import deque
 from typing import Dict, List
 
 import numpy as np
@@ -12,6 +13,25 @@ from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
 from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
 from src.utils.logger import Logger
+
+
+def _sliding_windows(transitions, W: int):
+    # not needed since we pre-allocate
+    # L = len(transitions)
+    # if L < W:
+    #     return []
+
+    # trim None
+    try:
+        L = transitions.index(None)
+    except ValueError:
+        L = len(transitions)
+
+    if L < W:
+        return []
+
+    # creates shallow sublists
+    return [transitions[i : i + W] for i in range(L - W + 1)]
 
 
 class EpsilonDecay:
@@ -160,7 +180,11 @@ class QmixRunner:
             timed_out = False
             redundant_end_duration = 0
             self.duration_pause_total = 0
-            episode = deque(maxlen=self.config.qmix.batch_episode_size)
+
+            # TODO: Set max steps
+            # pre-allocate
+            states = [None] * 200
+            # episode = deque(maxlen=self.config.qmix.batch_episode_size)
 
             t_start = time.perf_counter()
 
@@ -187,22 +211,23 @@ class QmixRunner:
                 Logger().debug(f"actions: {actions}")
 
                 # TODO:
-                timed_out = (
-                    time.perf_counter()
-                    - t_start
-                    - redundant_end_duration
-                    - self.action_duration
-                    >= self.max_game_duration
-                )
+                # timed_out = (
+                #     time.perf_counter()
+                #     - t_start
+                #     - redundant_end_duration
+                #     # - self.action_duration
+                #     >= self.max_game_duration
+                # ) or step_counter >= 200
+
+                timed_out = step_counter >= 200
 
                 display_text = (
                     f"Block {block_number} | "
                     + f"Round {round} | "
                     + f"Step {step_counter} | "
-                    + f"Redundant duration {redundant_end_duration}"
                 )
 
-                Logger().info(display_text)
+                # Logger().info(display_text)
 
                 (
                     next_raw_obs,
@@ -254,16 +279,18 @@ class QmixRunner:
                 # Append to our buffer episode only when it's train blocks
                 # TODO: success only buffer?
                 if mode == "train":
-                    episode.append(transition)
-                    log_msg = f"[Round {round}] Episode size: {len(episode)}"
-                    Logger().debug(log_msg)
+                    states[step_counter - 1] = transition
 
-                if len(episode) == self.config.qmix.batch_episode_size:
-                    self.replay_buffer.add(
-                        episode=self.pack_episode(episode=list(episode))
-                    )
+                    # episode.append(transition)
+                    # log_msg = f"[Round {round}] Episode size: {len(episode)}"
+                    # Logger().debug(log_msg)
 
-                Logger().debug(f"Replay buffer: {self.replay_buffer.list()}")
+                # if len(episode) == self.config.qmix.batch_episode_size:
+                #     self.replay_buffer.add(
+                #         episode=self.pack_episode(episode=list(episode))
+                #     )
+
+                # Logger().debug(f"Replay buffer: {self.replay_buffer.list()}")
 
                 episode_reward += reward
 
@@ -283,6 +310,13 @@ class QmixRunner:
                 local_obs = next_local_obs
                 global_state = next_global_state
 
+                # Logger().info(
+                #     f"Action duration {(self.action_duration * 1000):.2f}ms | "
+                #     + f"Redundant duration {(redundant_end_duration * 1000):.2f}ms | "
+                #     + f"Maze time {(maze_time * 1000):.2f}ms | "
+                #     + f"Transition timer {(transition_timer * 1000):.2f}ms | "
+                # )
+
             self.last_score = episode_reward
             # TODO: Doesn't work
             self.best_game_score = max(self.best_game_score, episode_reward)
@@ -298,10 +332,27 @@ class QmixRunner:
             self.rewards.append(episode_reward)
 
             if mode == "train":
-                # TODO: Packs leftover transitions into an episode
-                self.replay_buffer.add(
-                    self.pack_episode(episode=list(episode))
+                # Logger().info('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                # Logger().info(states)
+                # Logger().info('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                # TODO: Create sliding windows over here
+                windows = _sliding_windows(
+                    states, self.config.qmix.batch_episode_size
                 )
+
+                # Logger().info(windows)
+                # Logger().info('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+                if windows:
+                    packed = [
+                        self.pack_episode(episode=win) for win in windows
+                    ]
+                    self.replay_buffer.add_many(packed)
+
+                # TODO: Packs leftover transitions into an episode
+                # self.replay_buffer.add(
+                #     self.pack_episode(episode=list(episode))
+                # )
 
                 Logger().info(f"Buffer size: {len(self.replay_buffer)}")
 
