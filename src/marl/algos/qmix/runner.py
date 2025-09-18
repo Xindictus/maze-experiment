@@ -385,7 +385,7 @@ class QmixRunner:
                 )
                 # self.epsilon = self.decay.step()
                 self.epsilon = self.config.qmix.epsilon * (
-                    0.85 ** ((block_number + 1) * (round + 1))
+                    0.85 ** (block_number * max_rounds + (round + 1))
                 )
 
     def pack_episode(self, episode: List[Dict]) -> Dict:
