@@ -1,3 +1,4 @@
+import math
 import time
 
 # from collections import deque
@@ -90,6 +91,7 @@ class QmixRunner:
         self.games_per_block = config.experiment.games_per_block
         self.max_blocks = config.experiment.max_blocks
         self.max_game_duration = config.experiment.max_duration
+        self.total_steps = math.ceil(self.max_game_duration / 0.2)
         self.action_duration = config.experiment.action_duration
         self.popup_window_time = config.gui.popup_window_time
         self.log_interval = config.experiment.log_interval
@@ -183,7 +185,7 @@ class QmixRunner:
 
             # TODO: Set max steps
             # pre-allocate
-            states = [None] * 200
+            states = [None] * self.total_steps
             # episode = deque(maxlen=self.config.qmix.batch_episode_size)
 
             t_start = time.perf_counter()
@@ -219,7 +221,7 @@ class QmixRunner:
                 #     >= self.max_game_duration
                 # ) or step_counter >= 200
 
-                timed_out = step_counter >= 200
+                timed_out = step_counter >= self.total_steps
 
                 display_text = (
                     f"Block {block_number} | "
@@ -424,8 +426,8 @@ class QmixRunner:
             dones[t_step] = float(transition["done"])
 
         # Handle final obs and state
-        obs[t] = np.stack(episode[-1]["obs"])
-        state[t] = episode[-1]["state"]
+        obs[t] = np.stack(episode[-1]["next_obs"])
+        state[t] = episode[-1]["next_state"]
 
         return {
             # [T + 1, N, obs_dim]
