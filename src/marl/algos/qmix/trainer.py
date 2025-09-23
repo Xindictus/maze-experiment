@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 import numpy as np
 import torch as T
@@ -79,20 +79,34 @@ class QmixTrainer(Trainer):
 
         # Compute Q-values from mac and target_mac
 
-        # (batch, T + 1, n_agents, n_actions)
-        mac_out = self._get_q_values(self.mac, batch)
+        # (batch, T, n_agents, n_actions)
+        mac_out = self._get_q_values_v2(self.mac, batch)
 
         # (batch, T, n_agents, n_actions)
-        target_mac_out = self._get_q_values(self.target_mac, batch)
+        target_mac_out = self._get_q_values_v2(
+            self.target_mac, batch, "target"
+        )
 
         # Chosen Q-values (using actions taken)
         # (batch, T, n_agents)
-        chosen_qs = T.gather(mac_out[:, :-1], dim=-1, index=actions).squeeze(
-            -1
-        )
+        # chosen_qs = T.gather(mac_out[:, :-1], dim=-1, index=actions).squeeze(
+        #     -1
+        # )
+        chosen_qs = T.gather(mac_out, dim=-1, index=actions).squeeze(-1)
 
+        # Logger().info('~~~~~~~~~~~~~~~~')
+        # Logger().info(mac_out)
+        # Logger().info('~~~~~~~~~~~~~~~~')
+        # Logger().info(chosen_qs)
+        # Logger().info('~~~~~~~~~~~~~~~~')
+        # Logger().info(actions)
+        # Logger().info('~~~~~~~~~~~~~~~~')
+
+        # import sys
+        # sys.exit(1)
         # Mask out invalid actions in target Qs
-        masked_target_mac_out = target_mac_out[:, 1:]
+        # masked_target_mac_out = target_mac_out[:, 1:]
+        masked_target_mac_out = target_mac_out.clone()
         masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
         target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
 
@@ -161,6 +175,47 @@ class QmixTrainer(Trainer):
         all_qs = []
 
         for t in range(T_1):
+            q_at_t = []
+
+            for agent_id in range(N):
+                # (batch, obs_dim)
+                obs = batch["obs"][:, t, agent_id, :]
+
+                # (batch, n_actions)
+                q = mac.forward(agent_id, obs)
+                q_at_t.append(q)
+
+            # (batch, n_agents, n_actions)
+            q_at_t = T.stack(q_at_t, dim=1)
+
+            all_qs.append(q_at_t)
+
+        return T.stack(all_qs, dim=1)
+
+    # TODO: Think of stride in sliding windows
+    def _get_q_values_v2(
+        self,
+        mac: MAC,
+        batch: Dict[str, T.Tensor],
+        mode: Literal["regular", "target"] = "regular",
+    ) -> T.Tensor:
+        """
+        Runs all agents through the sequence of observations.
+        Returns Q-values: (batch, T + 1, n_agents, n_actions)
+        """
+        B, T_1, N, _ = batch["obs"].shape
+        Tlen = T_1 - 1
+
+        if mode == "regular":
+            indices = range(0, Tlen)
+        elif mode == "target":
+            indices = range(1, T_1)
+        else:
+            raise ValueError("Unknown mode for getting Q-values")
+
+        all_qs = []
+
+        for t in indices:
             q_at_t = []
 
             for agent_id in range(N):
