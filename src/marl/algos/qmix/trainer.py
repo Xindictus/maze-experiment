@@ -61,7 +61,6 @@ class QmixTrainer(Trainer):
         # (batch, T)
         rewards = batch["rewards"][:, :-1]
 
-        # TODO: Revisit this
         # (batch, T, n_agents, 1)
         actions = batch["actions"][:, :-1]
 
@@ -75,10 +74,8 @@ class QmixTrainer(Trainer):
 
         # (batch, T + 1, n_agents, n_actions)
         avail_actions = batch["avail_actions"]
-        # avail_actions = T.ones((200, 2, 3), dtype=T.float32)
 
         # Compute Q-values from mac and target_mac
-
         # (batch, T, n_agents, n_actions)
         mac_out = self._get_q_values_v2(self.mac, batch)
 
@@ -89,32 +86,18 @@ class QmixTrainer(Trainer):
 
         # Chosen Q-values (using actions taken)
         # (batch, T, n_agents)
-        # chosen_qs = T.gather(mac_out[:, :-1], dim=-1, index=actions).squeeze(
-        #     -1
-        # )
         chosen_qs = T.gather(mac_out, dim=-1, index=actions).squeeze(-1)
 
-        # Logger().info('~~~~~~~~~~~~~~~~')
-        # Logger().info(mac_out)
-        # Logger().info('~~~~~~~~~~~~~~~~')
-        # Logger().info(chosen_qs)
-        # Logger().info('~~~~~~~~~~~~~~~~')
-        # Logger().info(actions)
-        # Logger().info('~~~~~~~~~~~~~~~~')
+        Logger().debug(f"MAC out: {mac_out}")
+        Logger().debug(f"Chosen Qs: {chosen_qs}")
+        Logger().debug(f"Actions: {actions}")
 
-        # import sys
-        # sys.exit(1)
         # Mask out invalid actions in target Qs
-        # masked_target_mac_out = target_mac_out[:, 1:]
         masked_target_mac_out = target_mac_out.clone()
         masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
         target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
 
         states_input = batch["state"][:, 1:-1]
-
-        Logger().debug(f"chosen_qs (shape): {chosen_qs.shape}")
-        Logger().debug(f"batch['state'] (shape): {batch['state'].shape}")
-        Logger().debug(f"batch['state'][:, :-1] (shape): {states_input.shape}")
 
         # Mix agent individual Qs into global Q-tot
         # (batch, T, 1)
@@ -165,7 +148,9 @@ class QmixTrainer(Trainer):
 
         return loss
 
-    def _get_q_values(self, mac: MAC, batch: Dict[str, T.Tensor]) -> T.Tensor:
+    def _get_q_values_v1(
+        self, mac: MAC, batch: Dict[str, T.Tensor]
+    ) -> T.Tensor:
         """
         Runs all agents through the sequence of observations.
         Returns Q-values: (batch, T + 1, n_agents, n_actions)
@@ -233,8 +218,6 @@ class QmixTrainer(Trainer):
 
         return T.stack(all_qs, dim=1)
 
-    # def _to_device(self, batch: dict[str, T.Tensor]) -> dict[str, T.Tensor]:
-    #     return {k: v.to(self.config.device) for k, v in batch.items()}
     def _to_device(self, batch: dict[str, Any]) -> dict[str, T.Tensor]:
         result = {}
 
@@ -258,6 +241,7 @@ class QmixTrainer(Trainer):
 
     def log_batch_shapes(self, batch: dict[str, T.Tensor]):
         Logger().debug("Batch tensor shapes:")
+
         for k, v in batch.items():
             if isinstance(v, T.Tensor):
                 Logger().debug(f"  {k}: {tuple(v.shape)} | dtype: {v.dtype}")
