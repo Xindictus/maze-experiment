@@ -11,9 +11,10 @@ from src.config.loader import flatten_overrides
 from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
 from src.marl.algos.qmix.runner import QmixRunner
-from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
-
-# from src.marl.buffers.standard_replay_buffer import StandardReplayBuffer
+from src.marl.buffers import (
+    EpisodeReplayBuffer,
+    StandardReplayBuffer,
+)
 from src.marl.mixing.qmix import QMixer
 from src.utils.logger import LOG_LEVELS, Logger
 
@@ -78,9 +79,16 @@ def run(
 
     maze = GameController(config)
 
+    mem_size = config.experiment.buffer_memory_size
+    buffer_type = config.experiment.buffer_type
+
     # Init buffer
-    # buffer = StandardReplayBuffer(mem_size=100)
-    buffer = EpisodeReplayBuffer(mem_size=config.experiment.buffer_memory_size)
+    if buffer_type == "episode":
+        buffer = EpisodeReplayBuffer(mem_size=mem_size)
+    elif buffer_type == "standard":
+        buffer = StandardReplayBuffer(mem_size=mem_size)
+    else:
+        raise ValueError("Unknown buffer type")
 
     # Dummy mixer and MAC
     mixer = QMixer(config.qmix, "MAIN")
@@ -91,6 +99,7 @@ def run(
 
     trainer = QmixTrainer(
         buffer=buffer,
+        buffer_type=buffer_type,
         mac=mac,
         mixer=mixer,
         target_mac=target_mac,

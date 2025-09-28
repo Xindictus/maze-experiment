@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -10,6 +12,11 @@ class ExperimentBaseConfig(BaseModel):
 
     # The size of the buffer to initialize with
     buffer_memory_size: int = Field(default=1e6)
+
+    # The type of buffer to be used
+    buffer_type: Literal["episode", "prioritized", "standard"] = Field(
+        default="episode"
+    )
 
     # TODO: update_cycles
     # Number of train epochs

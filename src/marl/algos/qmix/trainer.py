@@ -17,6 +17,7 @@ class QmixTrainer(Trainer):
     def __init__(
         self,
         buffer: ReplayBufferBase,
+        buffer_type: Literal["episode", "prioritized", "standard"],
         mac: MAC,
         mixer: QMixer,
         target_mac: MAC,
@@ -24,6 +25,7 @@ class QmixTrainer(Trainer):
         config: QmixBaseConfig,
     ):
         self.buffer = buffer
+        self.buffer_type = buffer_type
         self.mac = mac
         self.mixer = mixer
         self.target_mac = target_mac
@@ -62,7 +64,10 @@ class QmixTrainer(Trainer):
         rewards = batch["rewards"][:, :-1]
 
         # (batch, T, n_agents, 1)
-        actions = batch["actions"][:, :-1]
+        if self._is_episode_buffer():
+            actions = batch["actions"][:, :-1]
+        elif self._is_standard_buffer():
+            actions = batch["actions"]
 
         # (batch, T)
         dones = batch["dones"][:, :-1].float()
@@ -74,6 +79,11 @@ class QmixTrainer(Trainer):
 
         # (batch, T + 1, n_agents, n_actions)
         avail_actions = batch["avail_actions"]
+
+        if self._is_episode_buffer():
+            states_input = batch["state"][:, 1:-1]
+        elif self._is_standard_buffer():
+            states_input = batch["state"]
 
         # Compute Q-values from mac and target_mac
         # (batch, T, n_agents, n_actions)
@@ -91,13 +101,25 @@ class QmixTrainer(Trainer):
         Logger().debug(f"MAC out: {mac_out}")
         Logger().debug(f"Chosen Qs: {chosen_qs}")
         Logger().debug(f"Actions: {actions}")
+        Logger().debug(f"States: {states_input}")
 
         # Mask out invalid actions in target Qs
         masked_target_mac_out = target_mac_out.clone()
-        masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
-        target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
 
-        states_input = batch["state"][:, 1:-1]
+        if self._is_episode_buffer():
+            masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
+            target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
+        elif self._is_standard_buffer():
+            masked_target_mac_out.masked_fill_(
+                avail_actions.narrow(
+                    1,
+                    avail_actions.size(1) - masked_target_mac_out.size(1),
+                    masked_target_mac_out.size(1),
+                )
+                == 0,
+                -1e9,
+            )
+            target_max_qvals = masked_target_mac_out.max(dim=-1).values
 
         # Mix agent individual Qs into global Q-tot
         # (batch, T, 1)
@@ -109,10 +131,16 @@ class QmixTrainer(Trainer):
         Logger().debug(f"target_max_qvals (shape): {target_max_qvals.shape}")
         Logger().debug(f"target_states (shape): {batch["state"][:, 1:].shape}")
 
-        target_q_tot = self.target_mixer(
-            target_max_qvals[:, :-1].to(self.config.device),
-            states_input.to(self.config.device),
-        )
+        if self._is_episode_buffer():
+            target_q_tot = self.target_mixer(
+                target_max_qvals[:, :-1].to(self.config.device),
+                states_input.to(self.config.device),
+            )
+        elif self._is_standard_buffer():
+            target_q_tot = self.target_mixer(
+                target_max_qvals.to(self.config.device),
+                states_input.to(self.config.device),
+            )
 
         Logger().debug(f"rewards (shape): {rewards.shape}")
         Logger().debug(f"dones (shape): {dones.shape}")
@@ -147,6 +175,12 @@ class QmixTrainer(Trainer):
             self._update_targets()
 
         return loss
+
+    def _is_episode_buffer(self):
+        return self.buffer_type == "episode"
+
+    def _is_standard_buffer(self):
+        return self.buffer_type == "standard"
 
     def _get_q_values_v1(
         self, mac: MAC, batch: Dict[str, T.Tensor]
@@ -239,7 +273,7 @@ class QmixTrainer(Trainer):
         self.target_mac.load_state(self.mac)
         self.target_mixer.load_state_dict(self.mixer.state_dict())
 
-    def log_batch_shapes(self, batch: dict[str, T.Tensor]):
+    def _log_batch_shapes(self, batch: dict[str, T.Tensor]):
         Logger().debug("Batch tensor shapes:")
 
         for k, v in batch.items():

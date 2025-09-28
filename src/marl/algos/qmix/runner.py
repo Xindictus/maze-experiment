@@ -1,6 +1,6 @@
 import math
 import time
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 from joblib import dump
@@ -10,7 +10,7 @@ from src.config.full_config import FullConfig
 from src.game.experiment import Experiment
 from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
-from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
+from src.marl.buffers import ReplayBufferBase
 from src.utils.logger import Logger
 
 
@@ -21,7 +21,7 @@ class QmixRunner:
         game_controller: GameController,
         mac: MAC,
         trainer: QmixTrainer,
-        replay_buffer: EpisodeReplayBuffer,
+        replay_buffer: ReplayBufferBase,
     ):
         self.config = config
         self.out_dir = config.out_dir
@@ -29,6 +29,7 @@ class QmixRunner:
         self.mac = mac
         self.trainer = trainer
         self.replay_buffer = replay_buffer
+        self.replay_buffer_type = config.experiment.buffer_type
 
         self.mode = config.experiment.mode
         self.goal = config.game.goal
@@ -217,18 +218,13 @@ class QmixRunner:
 
                 # Append to our buffer episode only when it's train blocks
                 if mode == "train":
-                    states[step_counter - 1] = transition
 
-                    # episode.append(transition)
-                    # log_msg = f"[Round {round}] Episode size: {len(episode)}"
-                    # Logger().debug(log_msg)
-
-                # if len(episode) == self.config.qmix.batch_episode_size:
-                #     self.replay_buffer.add(
-                #         episode=self._pack_episode(episode=list(episode))
-                #     )
-
-                # Logger().debug(f"Replay buffer: {self.replay_buffer.list()}")
+                    if self._is_episode_buffer():
+                        states[step_counter - 1] = transition
+                    elif self._is_standard_buffer():
+                        self.replay_buffer.add(
+                            transition=self._pack_transition(transition)
+                        )
 
                 episode_reward += reward
 
@@ -270,20 +266,16 @@ class QmixRunner:
             self.rewards.append(episode_reward)
 
             if mode == "train":
-                windows = self._sliding_windows(
-                    states, self.config.qmix.batch_episode_size
-                )
+                if self._is_episode_buffer():
+                    windows = self._sliding_windows(
+                        states, self.config.qmix.batch_episode_size
+                    )
 
-                if windows:
-                    packed = [
-                        self._pack_episode(episode=win) for win in windows
-                    ]
-                    self.replay_buffer.add_many(packed)
-
-                # TODO: Packs leftover transitions into an episode
-                # self.replay_buffer.add(
-                #     self._pack_episode(episode=list(episode))
-                # )
+                    if windows:
+                        packed = [
+                            self._pack_episode(episode=win) for win in windows
+                        ]
+                        self.replay_buffer.add_many(packed)
 
                 Logger().info(f"Buffer size: {len(self.replay_buffer)}")
 
@@ -331,6 +323,16 @@ class QmixRunner:
 
         # creates shallow sublists
         return [transitions[i : i + W] for i in range(L - W + 1)]
+
+    def _is_episode_buffer(self):
+        return self.config.experiment.buffer_type == "episode"
+
+    def _is_standard_buffer(self):
+        return self.config.experiment.buffer_type == "standard"
+
+    def _pack_transition(self, transition: Dict[str, Any]) -> Dict:
+        return self._pack_episode([transition])
+        # pass
 
     def _pack_episode(self, episode: List[Dict]) -> Dict:
         t = len(episode)
