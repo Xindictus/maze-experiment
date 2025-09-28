@@ -49,7 +49,9 @@ class QmixAgent(Agent):
         Logger().debug(f"[{self.name}] Observation values: {obs}")
 
         q_values = self.forward(obs)
-        Logger().debug(f"[{self.name}] Q-Values: {q_values}")
+
+        if mode == "test":
+            Logger().debug(f"[{self.name}] Q-Values: {q_values}")
 
         if mode == "train":
             if T.rand(1).item() < epsilon:

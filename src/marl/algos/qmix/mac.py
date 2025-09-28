@@ -6,6 +6,7 @@ from src.config.qmix_base import QmixBaseConfig
 from src.game.experiment import Experiment
 from src.marl.algos.common import ActionSpace, Observation
 from src.marl.algos.qmix import QmixAgent, QmixQNetNetwork
+from src.utils.logger import Logger
 
 
 class MAC:
@@ -58,9 +59,14 @@ class MAC:
                 config=self.config,
                 normalized=env.get_local_obs(agent_id),
             )
+
+            if mode == "test":
+                Logger().debug((agent_id, obs))
+
             action = agent.select_action(
                 obs=obs.to_tensor(), epsilon=epsilon, mode=mode
             )
+
             actions.append(action)
 
         return actions

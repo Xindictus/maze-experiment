@@ -1,5 +1,5 @@
+import math
 import time
-from collections import deque
 from typing import Dict, List
 
 import numpy as np
@@ -12,41 +12,6 @@ from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
 from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
 from src.utils.logger import Logger
-
-
-class EpsilonDecay:
-    def __init__(self, eps0: float, eps_min: float, X: int, p: float):
-        # TODO: PYDOC
-        self.eps0 = eps0
-        self.eps_min = eps_min
-        self.X = X
-        self.p = p
-        # current step
-        self.t = 0
-        self.epsilon = eps0
-
-    def step(self) -> float:
-        # Advance one round and return the new epsilon.
-        if self.t >= self.X:
-            self.epsilon = self.eps_min
-            return self.epsilon
-
-        # compute factor
-        num = (
-            self.eps_min
-            + (self.eps0 - self.eps_min)
-            * (1 - (self.t + 1) / self.X) ** self.p
-        )
-        den = (
-            self.eps_min
-            + (self.eps0 - self.eps_min) * (1 - self.t / self.X) ** self.p
-        )
-        d_t = num / den
-
-        # update epsilon
-        self.epsilon *= d_t
-        self.t += 1
-        return self.epsilon
 
 
 class QmixRunner:
@@ -70,6 +35,7 @@ class QmixRunner:
         self.games_per_block = config.experiment.games_per_block
         self.max_blocks = config.experiment.max_blocks
         self.max_game_duration = config.experiment.max_duration
+        self.total_steps = math.ceil(self.max_game_duration / 0.2)
         self.action_duration = config.experiment.action_duration
         self.popup_window_time = config.gui.popup_window_time
         self.log_interval = config.experiment.log_interval
@@ -81,20 +47,10 @@ class QmixRunner:
         self.current_block = 0
         self.epsilon = self.config.qmix.epsilon
 
-        # TODO: Dirty
+        # TODO: Dirty - Refactor
         self.epsilons = []
         self.losses = []
         self.rewards = []
-        # self.decay_rate = pow(
-        #     0.01 / self.epsilon,
-        #     1 / (self.max_blocks * self.games_per_block)
-        # )
-        # self.decay = EpsilonDecay(
-        #     eps0=self.epsilon,
-        #     eps_min=0.01,
-        #     X=(self.max_blocks * self.games_per_block),
-        #     p=0.5,
-        # )
 
     def run(self):
         for block in range(self.max_blocks):
@@ -110,7 +66,7 @@ class QmixRunner:
         Logger().info("QMIX Training Complete")
         self.maze.finished()
 
-        # TODO: Dirty
+        # TODO: Dirty - Refactor
         dump(
             self.epsilons,
             f"{self.out_dir}/epsilons.joblib",
@@ -145,9 +101,13 @@ class QmixRunner:
             )
             experiment.global_observation = prev_normalized_obs
 
-            Logger().debug(prev_normalized_obs.shape)
-            Logger().debug(prev_normalized_obs)
-            Logger().debug(experiment.global_observation)
+            Logger().debug(
+                f"prev_normalized_obs (shape): {prev_normalized_obs.shape}"
+            )
+            Logger().debug(f"prev_normalized_obs: {prev_normalized_obs}")
+            Logger().debug(
+                f"experiment.global_observation: {experiment.global_observation}"
+            )
 
             local_obs = [
                 experiment.get_local_obs(agent_id)
@@ -160,7 +120,11 @@ class QmixRunner:
             timed_out = False
             redundant_end_duration = 0
             self.duration_pause_total = 0
-            episode = deque(maxlen=self.config.qmix.batch_episode_size)
+
+            # TODO: Set configurable max steps
+
+            # pre-allocate
+            states = [None] * self.total_steps
 
             t_start = time.perf_counter()
 
@@ -184,25 +148,25 @@ class QmixRunner:
                 """
                 env_actions = experiment.get_env_actions(actions=actions)
 
-                Logger().debug(f"actions: {actions}")
+                if mode == "test":
+                    Logger().debug(f"actions: {actions}")
 
-                # TODO:
-                timed_out = (
-                    time.perf_counter()
-                    - t_start
-                    - redundant_end_duration
-                    - self.action_duration
-                    >= self.max_game_duration
-                )
+                # TODO: Original
+                # timed_out = (
+                #     time.perf_counter()
+                #     - t_start
+                #     - redundant_end_duration
+                #     # - self.action_duration
+                #     >= self.max_game_duration
+                # ) or step_counter >= 200
+
+                timed_out = step_counter >= self.total_steps
 
                 display_text = (
                     f"Block {block_number} | "
                     + f"Round {round} | "
                     + f"Step {step_counter} | "
-                    + f"Redundant duration {redundant_end_duration}"
                 )
-
-                Logger().info(display_text)
 
                 (
                     next_raw_obs,
@@ -252,18 +216,19 @@ class QmixRunner:
                 Logger().debug(f"Transition: {transition}")
 
                 # Append to our buffer episode only when it's train blocks
-                # TODO: success only buffer?
                 if mode == "train":
-                    episode.append(transition)
-                    log_msg = f"[Round {round}] Episode size: {len(episode)}"
-                    Logger().debug(log_msg)
+                    states[step_counter - 1] = transition
 
-                if len(episode) == self.config.qmix.batch_episode_size:
-                    self.replay_buffer.add(
-                        episode=self.pack_episode(episode=list(episode))
-                    )
+                    # episode.append(transition)
+                    # log_msg = f"[Round {round}] Episode size: {len(episode)}"
+                    # Logger().debug(log_msg)
 
-                Logger().debug(f"Replay buffer: {self.replay_buffer.list()}")
+                # if len(episode) == self.config.qmix.batch_episode_size:
+                #     self.replay_buffer.add(
+                #         episode=self._pack_episode(episode=list(episode))
+                #     )
+
+                # Logger().debug(f"Replay buffer: {self.replay_buffer.list()}")
 
                 episode_reward += reward
 
@@ -283,6 +248,13 @@ class QmixRunner:
                 local_obs = next_local_obs
                 global_state = next_global_state
 
+                # Logger().info(
+                #     f"Action duration {(self.action_duration * 1000):.2f}ms | "
+                #     + f"Redundant duration {(redundant_end_duration * 1000):.2f}ms | "
+                #     + f"Maze time {(maze_time * 1000):.2f}ms | "
+                #     + f"Transition timer {(transition_timer * 1000):.2f}ms | "
+                # )
+
             self.last_score = episode_reward
             # TODO: Doesn't work
             self.best_game_score = max(self.best_game_score, episode_reward)
@@ -293,19 +265,29 @@ class QmixRunner:
                 f"Best: {self.best_game_score:.2f} | Epsilon: {self.epsilon}"
             )
 
-            # TODO: Dirty
+            # TODO: Dirty - Refactor
             self.epsilons.append(self.epsilon)
             self.rewards.append(episode_reward)
 
             if mode == "train":
-                # TODO: Packs leftover transitions into an episode
-                self.replay_buffer.add(
-                    self.pack_episode(episode=list(episode))
+                windows = self._sliding_windows(
+                    states, self.config.qmix.batch_episode_size
                 )
+
+                if windows:
+                    packed = [
+                        self._pack_episode(episode=win) for win in windows
+                    ]
+                    self.replay_buffer.add_many(packed)
+
+                # TODO: Packs leftover transitions into an episode
+                # self.replay_buffer.add(
+                #     self._pack_episode(episode=list(episode))
+                # )
 
                 Logger().info(f"Buffer size: {len(self.replay_buffer)}")
 
-                # TODO: Dirty
+                # TODO: Dirty - Refactor
                 rb_losses = []
 
                 if len(self.replay_buffer) >= self.config.qmix.batch_size:
@@ -321,7 +303,7 @@ class QmixRunner:
                         loss = self.trainer.train()
 
                         if e % 10 == 0:
-                            # TODO: Dirty
+                            # TODO: Dirty - Refactor
                             rb_losses.append(loss)
                             pbar.set_postfix(loss=f"{loss:.4f}")
 
@@ -332,12 +314,25 @@ class QmixRunner:
                         "losses": rb_losses,
                     }
                 )
-                # self.epsilon = self.decay.step()
+
                 self.epsilon = self.config.qmix.epsilon * (
-                    0.85 ** ((block_number + 1) * (round + 1))
+                    0.85 ** (block_number * max_rounds + (round + 1))
                 )
 
-    def pack_episode(self, episode: List[Dict]) -> Dict:
+    def _sliding_windows(self, transitions, W: int):
+        # trim None
+        try:
+            L = transitions.index(None)
+        except ValueError:
+            L = len(transitions)
+
+        if L < W:
+            return []
+
+        # creates shallow sublists
+        return [transitions[i : i + W] for i in range(L - W + 1)]
+
+    def _pack_episode(self, episode: List[Dict]) -> Dict:
         t = len(episode)
         N = len(episode[0]["obs"])
         obs_dim = episode[0]["obs"][0].shape[0]
@@ -373,8 +368,8 @@ class QmixRunner:
             dones[t_step] = float(transition["done"])
 
         # Handle final obs and state
-        obs[t] = np.stack(episode[-1]["obs"])
-        state[t] = episode[-1]["state"]
+        obs[t] = np.stack(episode[-1]["next_obs"])
+        state[t] = episode[-1]["next_state"]
 
         return {
             # [T + 1, N, obs_dim]
@@ -395,8 +390,3 @@ class QmixRunner:
 
     def save_chkp(self) -> None:
         pass
-
-
-def print_dict_shapes(d):
-    for k, v in d.items():
-        print(f"{k}: {v.shape}")

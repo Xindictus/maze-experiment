@@ -209,3 +209,5 @@ __marimo__/
 
 # Extented
 tmp/
+*.log
+out/*

@@ -35,6 +35,13 @@ class EpisodeReplayBuffer(ReplayBufferBase):
 
         self.next_idx = (self.next_idx + 1) % self.mem_size
 
+    def add_many(self, episodes: List[Dict]) -> None:
+        """
+        Bulk add episodes.
+        """
+        for ep in episodes:
+            self.add(ep)
+
     def list(self) -> List[Dict[str, Any]]:
         return self.storage
 
