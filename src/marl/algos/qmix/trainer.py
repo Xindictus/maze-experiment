@@ -60,22 +60,28 @@ class QmixTrainer(Trainer):
         # For QMIX episode batch
         batch = self._to_device(batch)
 
-        # (batch, T)
-        rewards = batch["rewards"][:, :-1]
-
-        # (batch, T, n_agents, 1)
         if self._is_episode_buffer():
+            # (batch, T, n_agents, 1)
             actions = batch["actions"][:, :-1]
+            # (batch, T)
+            dones = batch["dones"][:, :-1].float()
+            # (batch, T)
+            # TODO: Adjust buffer
+            mask = batch["mask"][:, :-1].float()
+            mask[:, 1:] = mask[:, 1:] * (1 - dones[:, :-1])
+            # (batch, T)
+            rewards = batch["rewards"][:, :-1]
         elif self._is_standard_buffer():
+            # (batch, T, n_agents, 1)
             actions = batch["actions"]
-
-        # (batch, T)
-        dones = batch["dones"][:, :-1].float()
-
-        # (batch, T)
-        # TODO: Adjust buffer
-        mask = batch["mask"][:, :-1].float()
-        mask[:, 1:] = mask[:, 1:] * (1 - dones[:, :-1])
+            # (batch, T)
+            dones = batch["dones"].float()
+            # (batch, T)
+            # TODO: Adjust buffer
+            mask = batch["mask"].float()
+            mask[:, 1:] = mask[:, 1:] * (1 - dones)
+            # (batch, T)
+            rewards = batch["rewards"]
 
         # (batch, T + 1, n_agents, n_actions)
         avail_actions = batch["avail_actions"]
@@ -142,8 +148,8 @@ class QmixTrainer(Trainer):
                 states_input.to(self.config.device),
             )
 
-        Logger().debug(f"rewards (shape): {rewards.shape}")
-        Logger().debug(f"dones (shape): {dones.shape}")
+        Logger().debug(f"rewards: {rewards.shape}")
+        Logger().debug(f"dones: {dones.shape}")
         Logger().debug(f"target_q_tot: {target_q_tot.shape}")
 
         # TD target
@@ -162,6 +168,9 @@ class QmixTrainer(Trainer):
         # masked_td_error = td_error * mask.unsqueeze(-1)
         loss = (masked_td_error**2).sum() / mask.sum()
 
+        Logger().debug(f"mask: {mask}")
+        Logger().debug(f"td_error: {td_error}")
+        Logger().debug(f"masked_td_error: {masked_td_error}")
         Logger().debug(f"Loss: {loss}")
 
         # Optimizer
