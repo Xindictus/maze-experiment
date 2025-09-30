@@ -286,8 +286,8 @@ class QmixRunner:
                     Logger().info("Training...")
 
                     pbar = tqdm(
-                        range(self.config.experiment.epochs),
-                        desc="Epochs",
+                        range(self.config.experiment.update_cycles),
+                        desc="Update Cycles",
                         dynamic_ncols=True,
                     )
 

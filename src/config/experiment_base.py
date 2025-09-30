@@ -18,10 +18,8 @@ class ExperimentBaseConfig(BaseModel):
         default="episode"
     )
 
-    # TODO: update_cycles
-    # Number of train epochs
-    epochs: int = Field(default=200)
-    # epochs: int = Field(default=4000)
+    # Number of training epochs
+    update_cycles: int = Field(default=200)
 
     # Number of rounds/games per block
     games_per_block: int = Field(default=10)
