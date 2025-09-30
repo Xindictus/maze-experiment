@@ -48,7 +48,7 @@ class QmixTrainer(Trainer):
 
         self.training_steps = 0
 
-    def train(self) -> None:
+    def train(self) -> float:
         Logger().debug(f"Buffer size: {len(self.buffer)}")
         batch = self.buffer.sample(self.config.batch_size)
 
@@ -66,30 +66,25 @@ class QmixTrainer(Trainer):
             # (batch, T)
             dones = batch["dones"][:, :-1].float()
             # (batch, T)
-            # TODO: Adjust buffer
             mask = batch["mask"][:, :-1].float()
             mask[:, 1:] = mask[:, 1:] * (1 - dones[:, :-1])
             # (batch, T)
             rewards = batch["rewards"][:, :-1]
+            states_input = batch["state"][:, 1:-1]
         elif self._is_standard_buffer():
             # (batch, T, n_agents, 1)
             actions = batch["actions"]
             # (batch, T)
             dones = batch["dones"].float()
             # (batch, T)
-            # TODO: Adjust buffer
             mask = batch["mask"].float()
             mask[:, 1:] = mask[:, 1:] * (1 - dones)
             # (batch, T)
             rewards = batch["rewards"]
+            states_input = batch["state"]
 
         # (batch, T + 1, n_agents, n_actions)
         avail_actions = batch["avail_actions"]
-
-        if self._is_episode_buffer():
-            states_input = batch["state"][:, 1:-1]
-        elif self._is_standard_buffer():
-            states_input = batch["state"]
 
         # Compute Q-values from mac and target_mac
         # (batch, T, n_agents, n_actions)
@@ -185,10 +180,10 @@ class QmixTrainer(Trainer):
 
         return loss
 
-    def _is_episode_buffer(self):
+    def _is_episode_buffer(self) -> bool:
         return self.buffer_type == "episode"
 
-    def _is_standard_buffer(self):
+    def _is_standard_buffer(self) -> bool:
         return self.buffer_type == "standard"
 
     def _get_q_values_v1(
@@ -279,7 +274,7 @@ class QmixTrainer(Trainer):
         return result
 
     def _update_targets(self) -> None:
-        self.target_mac.load_state(self.mac)
+        self.target_mac.load_state(other=self.mac)
         self.target_mixer.load_state_dict(self.mixer.state_dict())
 
     def _log_batch_shapes(self, batch: dict[str, T.Tensor]):
