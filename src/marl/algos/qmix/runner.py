@@ -332,7 +332,6 @@ class QmixRunner:
 
     def _pack_transition(self, transition: Dict[str, Any]) -> Dict:
         return self._pack_episode([transition])
-        # pass
 
     def _pack_episode(self, episode: List[Dict]) -> Dict:
         t = len(episode)

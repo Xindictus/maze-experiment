@@ -38,7 +38,7 @@ class MAC:
         """
         Forward pass for a single agent.
         """
-        return self.agents[agent_id].network(obs)
+        return self.agents[agent_id].forward(obs)
 
     def select_actions(
         self,

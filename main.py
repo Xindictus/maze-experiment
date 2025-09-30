@@ -97,6 +97,10 @@ def run(
     mac = MAC(config=config.qmix)
     target_mac = MAC(config=config.qmix)
 
+    # Make sure agent networks are init
+    # the same way in target MAC
+    target_mac.load_state(mac)
+
     trainer = QmixTrainer(
         buffer=buffer,
         buffer_type=buffer_type,
@@ -115,8 +119,8 @@ def run(
         replay_buffer=buffer,
     )
 
-    runner.run()
     # my_test(config)
+    runner.run()
 
 
 def my_test(config):
