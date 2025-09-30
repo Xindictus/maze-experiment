@@ -99,7 +99,7 @@ def run(
 
     # Make sure agent networks are init
     # the same way in target MAC
-    target_mac.load_state(mac)
+    target_mac.load_state(other=mac)
 
     trainer = QmixTrainer(
         buffer=buffer,

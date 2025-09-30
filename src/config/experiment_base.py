@@ -22,7 +22,7 @@ class ExperimentBaseConfig(BaseModel):
     update_cycles: int = Field(default=200)
 
     # Number of rounds/games per block
-    games_per_block: int = Field(default=10)
+    games_per_block: int = Field(default=5)
 
     # Perform offline gradient updates after every n episodes
     # TODO: Unused
@@ -32,7 +32,7 @@ class ExperimentBaseConfig(BaseModel):
     log_interval: int = Field(default=10)
 
     # Max training games per experiment
-    max_blocks: int = Field(default=6)
+    max_blocks: int = Field(default=5)
 
     # Max duration per game in seconds
     max_duration: int = Field(default=40)

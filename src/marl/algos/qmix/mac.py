@@ -74,11 +74,12 @@ class MAC:
     def parameters(self) -> List[T.nn.Parameter]:
         return [p for agent in self.agents for p in agent.parameters()]
 
+    @T.no_grad()
     def load_state(
         self,
-        tau: Optional[float],
         other: "MAC",
         update: Literal["hard", "soft"] = "hard",
+        tau: Optional[float] = None,
     ) -> None:
         # Both MAC instances should have the same number of agents
         assert len(self.agents) == len(
@@ -86,11 +87,12 @@ class MAC:
         ), "MAC agent count mismatch during load_state"
 
         if update == "hard":
-            for agent, target_agent in zip(self.agents, other.agents):
-                target_agent.load_state(agent)
+            for agent, other_agent in zip(self.agents, other.agents):
+                agent.load_state(other_agent)
         elif update == "soft":
-            for s, o in zip(self.agents, other.agents):
+            for agent, other_agent in zip(self.agents, other.agents):
                 for p_s, p_o in zip(
-                    s.network.parameters(), o.network.parameters()
+                    agent.network.parameters(),
+                    other_agent.network.parameters(),
                 ):
                     p_s.data.mul_(1 - tau).add_(p_o.data, alpha=tau)
