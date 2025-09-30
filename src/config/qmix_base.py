@@ -79,6 +79,12 @@ class QmixBaseConfig(BaseModel):
     """
     target_update_interval: int = Field(default=2, ge=1)
 
+    # Controls how the agent target networks are updated
+    target_update_mode: Literal["hard", "soft"] = Field(default="hard")
+
+    # Soft update coefficient
+    tau: float = Field(default=0.005, ge=0, le=1)
+
     # Restrict values to power of 2
     # TODO: hidden dim
     _check_power = field_validator(

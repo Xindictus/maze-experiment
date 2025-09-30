@@ -274,7 +274,12 @@ class QmixTrainer(Trainer):
         return result
 
     def _update_targets(self) -> None:
-        self.target_mac.load_state(other=self.mac)
+        self.target_mac.load_state(
+            other=self.mac,
+            update=self.config.target_update_mode,
+            tau=self.config.tau,
+        )
+
         self.target_mixer.load_state_dict(self.mixer.state_dict())
 
     def _log_batch_shapes(self, batch: dict[str, T.Tensor]):
