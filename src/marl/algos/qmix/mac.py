@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 import torch as T
 
@@ -26,7 +26,7 @@ class MAC:
         ]
         self.config = config
 
-    def init_hidden(self):
+    def init_hidden(self) -> None:
         """
         Initializes hidden states for all agents - GRU only
         """
@@ -38,7 +38,7 @@ class MAC:
         """
         Forward pass for a single agent.
         """
-        return self.agents[agent_id].network(obs)
+        return self.agents[agent_id].forward(obs)
 
     def select_actions(
         self,
@@ -74,11 +74,25 @@ class MAC:
     def parameters(self) -> List[T.nn.Parameter]:
         return [p for agent in self.agents for p in agent.parameters()]
 
-    def load_state(self, other: "MAC"):
+    @T.no_grad()
+    def load_state(
+        self,
+        other: "MAC",
+        update: Literal["hard", "soft"] = "hard",
+        tau: Optional[float] = None,
+    ) -> None:
         # Both MAC instances should have the same number of agents
         assert len(self.agents) == len(
             other.agents
         ), "MAC agent count mismatch during load_state"
 
-        for agent, target_agent in zip(self.agents, other.agents):
-            target_agent.load_state(agent)
+        if update == "hard":
+            for agent, other_agent in zip(self.agents, other.agents):
+                agent.load_state(other_agent)
+        elif update == "soft":
+            for agent, other_agent in zip(self.agents, other.agents):
+                for p_s, p_o in zip(
+                    agent.network.parameters(),
+                    other_agent.network.parameters(),
+                ):
+                    p_s.data.mul_(1 - tau).add_(p_o.data, alpha=tau)

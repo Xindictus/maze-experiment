@@ -20,20 +20,27 @@ class StandardReplayBuffer(ReplayBufferBase):
         self.next_idx = (self.next_idx + 1) % self.mem_size
 
     def _encode_sample(self, indices: List[int]) -> Dict[str, np.ndarray]:
-        actions, dones, next_obses, obses, rewards = [], [], [], [], []
+        # actions, dones, next_obses, obses, rewards = [], [], [], [], []
 
-        for idx in indices:
-            transition = self.storage[idx]
-            actions.append(transition["action"])
-            dones.append(transition["done"])
-            next_obses.append(transition["next_obs"])
-            obses.append(transition["obs"])
-            rewards.append(transition["reward"])
+        batch = {}
 
-        return {
-            "obs": np.array(obses),
-            "actions": np.array(actions),
-            "rewards": np.array(rewards),
-            "next_obs": np.array(next_obses),
-            "dones": np.array(dones),
-        }
+        for key in self.storage[0].keys():
+            batch[key] = [self.storage[i][key] for i in indices]
+
+        return {k: np.array(v) for k, v in batch.items()}
+
+        # for idx in indices:
+        #     transition = self.storage[idx]
+        #     actions.append(transition["action"])
+        #     dones.append(transition["done"])
+        #     next_obses.append(transition["next_obs"])
+        #     obses.append(transition["obs"])
+        #     rewards.append(transition["reward"])
+
+        # return {
+        #     "obs": np.array(obses),
+        #     "actions": np.array(actions),
+        #     "rewards": np.array(rewards),
+        #     "next_obs": np.array(next_obses),
+        #     "dones": np.array(dones),
+        # }

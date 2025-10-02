@@ -25,6 +25,7 @@ def create_dummy_qmix_trainer() -> QmixTrainer:
 
     trainer = QmixTrainer(
         buffer=buffer,
+        buffer_type="episode",
         mac=mac,
         mixer=mixer,
         target_mac=target_mac,

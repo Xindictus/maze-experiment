@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -11,13 +13,16 @@ class ExperimentBaseConfig(BaseModel):
     # The size of the buffer to initialize with
     buffer_memory_size: int = Field(default=1e6)
 
-    # TODO: update_cycles
-    # Number of train epochs
-    epochs: int = Field(default=200)
-    # epochs: int = Field(default=4000)
+    # The type of buffer to be used
+    buffer_type: Literal["episode", "prioritized", "standard"] = Field(
+        default="episode"
+    )
+
+    # Number of training epochs
+    update_cycles: int = Field(default=200)
 
     # Number of rounds/games per block
-    games_per_block: int = Field(default=10)
+    games_per_block: int = Field(default=5)
 
     # Perform offline gradient updates after every n episodes
     # TODO: Unused
@@ -27,7 +32,7 @@ class ExperimentBaseConfig(BaseModel):
     log_interval: int = Field(default=10)
 
     # Max training games per experiment
-    max_blocks: int = Field(default=6)
+    max_blocks: int = Field(default=5)
 
     # Max duration per game in seconds
     max_duration: int = Field(default=40)

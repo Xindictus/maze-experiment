@@ -11,7 +11,7 @@ class QmixNetwork(AgentNetwork, ABC):
     def __init__(self, config: QmixBaseConfig):
         super().__init__(config)
 
-    def init_weights(self, m):
+    def init_weights(self, m) -> None:
         if isinstance(m, nn.Linear):
             # TODO: switch mode and switch mode RELU
             nn.init.xavier_uniform_(m.weight)
