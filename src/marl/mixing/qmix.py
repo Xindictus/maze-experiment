@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,7 +23,9 @@ class QMixer(nn.Module):
     - 2: MLP (Linear -> ReLU -> Linear)
     """
 
-    def __init__(self, config: QmixBaseConfig, name: str):
+    def __init__(
+        self, config: QmixBaseConfig, name: Literal["MAIN", "TARGET"]
+    ):
         super(QMixer, self).__init__()
 
         Logger().debug(config)
@@ -112,8 +116,18 @@ class QMixer(nn.Module):
         We are reshaping states, because networks expect 2D input instead
         of our current 3D tensor.
         """
+        Logger().debug(f"[{self.name}] states: {states}")
+
         B, Tq, N = agent_qs.shape
-        states = states[:, :Tq, :]
+
+        # TODO: Breaks episode buffer
+        if self.name == "MAIN":
+            states = states[:, :Tq, :]
+        elif self.name == "TARGET":
+            states = states[:, Tq:, :]
+        else:
+            raise ValueError("Invalid mixer name")
+
         states = states.reshape(B * Tq, -1)
         agent_qs = agent_qs.reshape(B * Tq, 1, N)
 
@@ -123,6 +137,8 @@ class QMixer(nn.Module):
         # We need this for matrix multiplication with w1
         # agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
         Logger().debug(f"[{self.name}] agent_qs (shape): {agent_qs.shape}")
+        Logger().debug(f"[{self.name}] states (shape): {states.shape}")
+        Logger().debug(f"[{self.name}] states: {states}")
 
         # ---------------- First layer ---------------- #
 

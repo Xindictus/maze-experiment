@@ -16,7 +16,7 @@ def create_test_mixer(config: QmixBaseConfig = None) -> QMixer:
             hypernet_layers=1,
         )
 
-    return (config, QMixer(config, "TEST"))
+    return (config, QMixer(config, "MAIN"))
 
 
 def create_dummy_inputs(
