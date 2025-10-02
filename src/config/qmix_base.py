@@ -23,6 +23,9 @@ class QmixBaseConfig(BaseModel):
     # Epsilon-greedy exploration strategy parameter
     epsilon: float = Field(default=0.9)
 
+    # The decay rate factor for epsilon-greedy exploration
+    epsilon_decay_rate: float = Field(default=0.05, ge=0.0)
+
     # Discount factor for future rewards.
     gamma: float = Field(default=0.99, ge=0.0, le=1.0)
 
