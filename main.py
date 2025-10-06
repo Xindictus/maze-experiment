@@ -93,6 +93,7 @@ def run(
     # Dummy mixer and MAC
     mixer = QMixer(config.qmix, "MAIN")
     target_mixer = QMixer(config.qmix, "TARGET")
+    target_mixer.load_state_dict(mixer.state_dict())
 
     mac = MAC(config=config.qmix)
     target_mac = MAC(config=config.qmix)
