@@ -94,7 +94,6 @@ def run(
     else:
         raise ValueError("Unknown buffer type")
 
-    # Dummy mixer and MAC
     mixer = QMixer(config.qmix, "MAIN")
     target_mixer = QMixer(config.qmix, "TARGET")
     target_mixer.load_state_dict(mixer.state_dict())

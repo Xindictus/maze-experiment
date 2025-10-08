@@ -35,6 +35,9 @@ class QmixBaseConfig(BaseModel):
     """
     grad_norm_clip: float = Field(default=10.0, ge=0.0)
 
+    # Switch on/off for clipping
+    is_grad_norm_clip_enabled: bool = Field(default=False)
+
     # List of hidden layer sizes for the agent network (e.g., [64, 64])
     hidden_dims: List[int] = Field(default_factory=lambda: [64, 32])
 
@@ -60,6 +63,9 @@ class QmixBaseConfig(BaseModel):
     # Number of agents
     n_agents: int = Field(default=2, ge=2, le=100)
 
+    # Optimizer selection
+    optimizer: Literal["adam", "adamw", "rms"] = Field(default="adam")
+
     # RMSProp smoothing constant (alpha).
     optim_alpha: float = Field(
         default=0.99,
@@ -71,7 +77,7 @@ class QmixBaseConfig(BaseModel):
     """
     Epsilon value for RMSprop optimizer.
     """
-    optim_eps: float = Field(default=1e-5, ge=0.0)
+    optim_eps: float = Field(default=1e-7, ge=0.0)
 
     #  Shape of the global state tensor
     state_shape: Tuple[int, ...] = Field(default=(8,), min_length=1)

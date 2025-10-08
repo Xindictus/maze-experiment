@@ -39,14 +39,39 @@ class QmixTrainer(Trainer):
         self.params = list(self.mac.parameters()) + list(
             self.mixer.parameters()
         )
-        self.optimizer = optim.RMSprop(
-            params=self.params,
-            lr=config.learning_rate,
-            alpha=config.optim_alpha,
-            eps=config.optim_eps,
-        )
+
+        self.__init_optimizer()
 
         self.training_steps = 0
+
+    def __init_optimizer(self) -> None:
+        if self.config.optimizer == "adam":
+            self.optimizer = optim.Adam(
+                params=self.params,
+                lr=self.config.learning_rate,
+                eps=self.config.optim_eps,
+                maximize=True,
+                fused=True,
+            )
+        elif self.config.optimizer == "adamw":
+            self.optimizer = optim.AdamW(
+                params=self.params,
+                lr=self.config.learning_rate,
+                eps=self.config.optim_eps,
+                maximize=True,
+                fused=True,
+            )
+        elif self.config.optimizer == "rms":
+            self.optimizer = optim.RMSprop(
+                params=self.params,
+                lr=self.config.learning_rate,
+                alpha=self.config.optim_alpha,
+                eps=self.config.optim_eps,
+            )
+        else:
+            raise ValueError(
+                f"Invalid otpimizer selected: {self.config.optimizer}"
+            )
 
     def train(self) -> float:
         Logger().debug(f"Buffer size: {len(self.buffer)}")
@@ -171,7 +196,10 @@ class QmixTrainer(Trainer):
         # Optimizer
         self.optimizer.zero_grad()
         loss.backward()
-        clip_grad_norm_(self.params, self.config.grad_norm_clip)
+
+        if self.config.is_grad_norm_clip_enabled:
+            clip_grad_norm_(self.params, self.config.grad_norm_clip)
+
         self.optimizer.step()
 
         self.training_steps += 1
