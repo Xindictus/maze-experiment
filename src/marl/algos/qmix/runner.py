@@ -89,20 +89,28 @@ class QmixRunner:
     def run_block(self, block_number: int, mode: str):
         max_rounds = int(self.games_per_block)
 
+        experiment = Experiment(self.config.qmix)
+
         for round in range(max_rounds):
             is_paused = True
+
             while is_paused:
                 Logger().info("Game Reseting")
                 Logger().info(f"Starting block {block_number}, round {round}")
-                prev_raw_obs, setting_up_duration, is_paused = self.maze.reset(
-                    mode
-                )
+                (
+                    prev_raw_obs,
+                    init_ball_pos_r,
+                    setting_up_duration,
+                    is_paused,
+                ) = self.maze.reset(mode)
 
-            experiment = Experiment(self.config.qmix)
             prev_normalized_obs = experiment._normalize_global_state(
                 prev_raw_obs
             )
-            experiment.global_observation = prev_normalized_obs
+            experiment.global_observation = (
+                prev_normalized_obs,
+                init_ball_pos_r,
+            )
 
             Logger().debug(
                 f"prev_normalized_obs (shape): {prev_normalized_obs.shape}"
@@ -137,7 +145,8 @@ class QmixRunner:
                 action_timer_start = time.perf_counter()
 
                 actions = self.mac.select_actions(
-                    experiment,
+                    observations=local_obs,
+                    # experiment,
                     epsilon=self.epsilon,
                     mode=mode,
                 )
@@ -180,6 +189,7 @@ class QmixRunner:
                     action_pair,
                     internet_delay,
                     dist_travelled,
+                    init_ball_pos,
                 ) = self.maze.step(
                     action_agent=env_actions,
                     timed_out=timed_out,
@@ -196,7 +206,10 @@ class QmixRunner:
                 normalized_obs_next = experiment._normalize_global_state(
                     next_raw_obs
                 )
-                experiment.global_observation = normalized_obs_next
+                experiment.global_observation = (
+                    normalized_obs_next,
+                    init_ball_pos,
+                )
 
                 Logger().debug(f"Normalized OBS (Next): {normalized_obs_next}")
 
@@ -256,8 +269,7 @@ class QmixRunner:
                 # Logger().info(
                 #     f"Action duration {(self.action_duration * 1000):.2f}ms | "
                 #     + f"Redundant duration {(redundant_end_duration * 1000):.2f}ms | "
-                #     + f"Maze time {(maze_time * 1000):.2f}ms | "
-                #     + f"Transition timer {(transition_timer * 1000):.2f}ms | "
+                #     + f"Maze time {(maze_time * 1000):.2f}ms"
                 # )
 
             self.last_score = episode_reward

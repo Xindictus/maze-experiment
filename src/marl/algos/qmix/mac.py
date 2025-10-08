@@ -3,7 +3,6 @@ from typing import List, Literal, Optional
 import torch as T
 
 from src.config.qmix_base import QmixBaseConfig
-from src.game.experiment import Experiment
 from src.marl.algos.common import ActionSpace, Observation
 from src.marl.algos.qmix import QmixAgent, QmixQNetNetwork
 from src.utils.logger import Logger
@@ -42,7 +41,8 @@ class MAC:
 
     def select_actions(
         self,
-        env: Experiment,
+        observations: List[float],
+        # env: Experiment,
         epsilon: float,
         mode: Literal["test", "train"] = "test",
     ) -> List[int]:
@@ -57,7 +57,8 @@ class MAC:
         for agent_id, agent in enumerate(self.agents):
             obs = Observation(
                 config=self.config,
-                normalized=env.get_local_obs(agent_id),
+                normalized=observations[agent_id],
+                # normalized=env.get_local_obs(agent_id),
             )
 
             if mode == "test":

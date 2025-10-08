@@ -32,9 +32,6 @@ class GameController:
         self.send_config()
         self.agent_ready()
 
-        self.observation, _, _ = self.reset("test")
-        self.observation_shape = (len(self.observation),)
-
     def send_config(self) -> None:
         json_config = self.config.game.model_dump(mode="json")
 
@@ -111,7 +108,12 @@ class GameController:
         res = self.send(self.reset_endpoints[type])
         set_up_time = time.perf_counter() - start_time
 
-        return (np.asarray(res["observation"]), set_up_time, res["pause"])
+        return (
+            np.asarray(res["observation"]),
+            np.asarray(res["init_ball_pos"]),
+            set_up_time,
+            res["pause"],
+        )
 
     def training(self, cycle: int, total_cycles: int) -> None:
         self.send(
@@ -221,4 +223,5 @@ class GameController:
             [agent_action, human_action],
             internet_pause,
             dist_travelled,
+            res["init_ball_pos"],
         )
