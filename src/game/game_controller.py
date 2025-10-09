@@ -7,18 +7,19 @@ import requests as requests
 
 from src.config import FullConfig
 from src.marl.algos.common.action_space import ActionSpace
-from src.marl.rewards.reward_engine import RewardEngine
+from src.marl.algos.common.reward_engine import RewardContext, RewardEngine
 from src.utils.logger import Logger
 
 
 class GameController:
     reset_endpoints: Dict[str, str] = {"train": "/reset", "test": "/testreset"}
 
-    def __init__(self, config: FullConfig):
+    def __init__(self, config: FullConfig, reward_engine: RewardEngine):
         Logger().info("Initializing Maze3D GameController...")
 
         self.action_space = ActionSpace(list(range(3)))
         self.config = config
+        self.reward_engine = reward_engine
         self.done = False
         self.fps = 60
         self.internet_delay: List[float] = []
@@ -30,9 +31,6 @@ class GameController:
         self.set_host()
         self.send_config()
         self.agent_ready()
-
-        self.observation, _, _ = self.reset("test")
-        self.observation_shape = (len(self.observation),)
 
     def send_config(self) -> None:
         json_config = self.config.game.model_dump(mode="json")
@@ -110,7 +108,12 @@ class GameController:
         res = self.send(self.reset_endpoints[type])
         set_up_time = time.perf_counter() - start_time
 
-        return (np.asarray(res["observation"]), set_up_time, res["pause"])
+        return (
+            np.asarray(res["observation"]),
+            np.asarray(res["init_ball_pos"]),
+            set_up_time,
+            res["pause"],
+        )
 
     def training(self, cycle: int, total_cycles: int) -> None:
         self.send(
@@ -167,6 +170,8 @@ class GameController:
         res = self.send("/step_two_agents", method="POST", data=payload)
         delay = time.perf_counter() - start_time
 
+        Logger().debug(res)
+
         self.internet_delay.append(delay)
         self.observation = np.array(res["observation"])
 
@@ -194,9 +199,13 @@ class GameController:
 
         dist_travelled = get_distance_travelled(prev_obs, self.observation)
 
-        reward = RewardEngine.compute_reward(
-            self.done, timed_out, dist_travelled
+        ctx = RewardContext(
+            reached_goal=self.done,
+            timed_out=timed_out,
+            dist_travelled=dist_travelled,
+            distance_from_goal=res["distance_from_goal"],
         )
+        reward = self.reward_engine.compute_reward(ctx=ctx)
 
         Logger().debug(
             f"Action Duration: {(action_duration * 1000):.2f}ms | "
@@ -214,4 +223,5 @@ class GameController:
             [agent_action, human_action],
             internet_pause,
             dist_travelled,
+            res["init_ball_pos"],
         )

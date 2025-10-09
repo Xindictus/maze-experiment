@@ -94,7 +94,7 @@ def test_normalize_state_mixed():
 def test_global_observation_property_sets_and_normalizes():
     obs = [-2, 2, -4, 4, -30, 30, -1.9, 1.9]
     experiment = Experiment(_config=create_config())
-    experiment.global_observation = obs
+    experiment.global_observation = (obs, [])
 
     assert np.allclose(
         experiment.global_observation, [-1, 1, -1, 1, -1, 1, -1, 1]

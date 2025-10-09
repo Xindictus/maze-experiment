@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 import numpy as np
@@ -10,13 +10,26 @@ from pydantic import BaseModel
 class Observation:
     config: BaseModel
     normalized: np.ndarray
+    init_ball_pos: np.ndarray = field(
+        default_factory=lambda: np.array([], dtype=float)
+    )
     raw_input: Optional[List[float]] = None
 
     def get_state(self) -> np.ndarray:
-        return self.normalized
+        obs = self.normalized
+
+        if self.config.is_extended_obs_enabled:
+            obs = np.concatenate([obs, self.init_ball_pos])
+
+        return obs
 
     def slice(self, indices: List[int]) -> np.ndarray:
-        return self.normalized[indices]
+        obs = self.normalized[indices]
+
+        if self.config.is_extended_obs_enabled:
+            obs = np.concatenate([obs, self.init_ball_pos])
+
+        return obs
 
     def to_tensor(self) -> T.Tensor:
         return T.tensor(self.get_state(), dtype=T.float32).to(
