@@ -86,13 +86,12 @@ class QMixer(nn.Module):
                 )
 
     def forward(self, agent_qs: T.Tensor, states: T.Tensor) -> T.Tensor:
-        Logger().debug(f"[{self.name}] agent_qs (shape): {agent_qs.shape}")
-        Logger().debug(f"[{self.name}] states (shape): {states.shape}")
         Logger().debug(
-            f"[{self.name}] state_dim config (shape): {self.config.state_dim}"
+            f"[{self.name}] agent_qs (shape.before): {agent_qs.shape}"
         )
+        Logger().debug(f"[{self.name}] states (shape.before): {states.shape}")
         Logger().debug(
-            f"[{self.name}] states before reshape (shape): {states.shape}"
+            f"[{self.name}] state_dim config (shape.before): {self.config.state_dim}"
         )
 
         # TODO
@@ -120,15 +119,16 @@ class QMixer(nn.Module):
 
         B, Tq, N = agent_qs.shape
 
-        # TODO: Breaks episode buffer
         if self.name == "MAIN":
             states = states[:, :Tq, :]
         elif self.name == "TARGET":
-            states = states[:, Tq:, :]
+            states = states[:, -1:, :]
         else:
             raise ValueError("Invalid mixer name")
 
-        states = states.reshape(B * Tq, -1)
+        Logger().debug(f"[{self.name}] states (shape.slice): {states.shape}")
+
+        states = states.reshape(B * states.shape[1], -1)
         agent_qs = agent_qs.reshape(B * Tq, 1, N)
 
         # states = states[:, :-1, :]
@@ -136,8 +136,10 @@ class QMixer(nn.Module):
 
         # We need this for matrix multiplication with w1
         # agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
-        Logger().debug(f"[{self.name}] agent_qs (shape): {agent_qs.shape}")
-        Logger().debug(f"[{self.name}] states (shape): {states.shape}")
+        Logger().debug(
+            f"[{self.name}] agent_qs (shape.after): {agent_qs.shape}"
+        )
+        Logger().debug(f"[{self.name}] states (shape.after): {states.shape}")
         Logger().debug(f"[{self.name}] states: {states}")
 
         # ---------------- First layer ---------------- #
