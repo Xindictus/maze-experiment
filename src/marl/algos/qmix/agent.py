@@ -39,7 +39,7 @@ class QmixAgent(Agent):
         Logger().debug(f"[{self.name}] Observation shape: {obs.shape}")
         Logger().debug(f"[{self.name}] Observation values: {obs}")
 
-        q_values = self.forward(obs)
+        q_values, _ = self.forward(obs)
 
         if mode == "test":
             Logger().debug(f"[{self.name}] Q-Values: {q_values}")

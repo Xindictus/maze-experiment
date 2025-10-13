@@ -4,7 +4,7 @@ import torch as T
 
 from src.config.qmix_base import QmixBaseConfig
 from src.marl.algos.common import ActionSpace, Observation
-from src.marl.algos.qmix import QmixAgent, QmixQNetNetwork
+from src.marl.algos.qmix import QmixAgent, QmixGRUNetwork
 from src.utils.logger import Logger
 
 
@@ -18,7 +18,8 @@ class MAC:
             QmixAgent(
                 action_space=ActionSpace(list(range(3))),
                 config=config,
-                network=QmixQNetNetwork(config=config),
+                # TODO: Selection through CLI args
+                network=QmixGRUNetwork(config=config),
                 name=f"Agent-[{i + 1:03d}]",
             )
             for i in range(config.n_agents)
