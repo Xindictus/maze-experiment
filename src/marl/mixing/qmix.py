@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,7 +23,9 @@ class QMixer(nn.Module):
     - 2: MLP (Linear -> ReLU -> Linear)
     """
 
-    def __init__(self, config: QmixBaseConfig, name: str):
+    def __init__(
+        self, config: QmixBaseConfig, name: Literal["MAIN", "TARGET"]
+    ):
         super(QMixer, self).__init__()
 
         Logger().debug(config)
@@ -82,13 +86,12 @@ class QMixer(nn.Module):
                 )
 
     def forward(self, agent_qs: T.Tensor, states: T.Tensor) -> T.Tensor:
-        Logger().debug(f"[{self.name}] agent_qs (shape): {agent_qs.shape}")
-        Logger().debug(f"[{self.name}] states (shape): {states.shape}")
         Logger().debug(
-            f"[{self.name}] state_dim config (shape): {self.config.state_dim}"
+            f"[{self.name}] agent_qs (shape.before): {agent_qs.shape}"
         )
+        Logger().debug(f"[{self.name}] states (shape.before): {states.shape}")
         Logger().debug(
-            f"[{self.name}] states before reshape (shape): {states.shape}"
+            f"[{self.name}] state_dim config (shape.before): {self.config.state_dim}"
         )
 
         # TODO
@@ -97,7 +100,7 @@ class QMixer(nn.Module):
         # - dropout in hypernetworks
 
         # Store original batch size (episodes) before flattening for mixing
-        batch_size = agent_qs.size(0)
+        # batch_size = agent_qs.size(0)
 
         """
         States has the shape [batch_size, episode_length, state_dim]
@@ -112,11 +115,32 @@ class QMixer(nn.Module):
         We are reshaping states, because networks expect 2D input instead
         of our current 3D tensor.
         """
+        Logger().debug(f"[{self.name}] states: {states}")
+
+        B, Tq, N = agent_qs.shape
+
+        if self.name == "MAIN":
+            states = states[:, :Tq, :]
+        elif self.name == "TARGET":
+            states = states[:, -1:, :]
+        else:
+            raise ValueError("Invalid mixer name")
+
+        Logger().debug(f"[{self.name}] states (shape.slice): {states.shape}")
+
+        states = states.reshape(B * states.shape[1], -1)
+        agent_qs = agent_qs.reshape(B * Tq, 1, N)
+
         # states = states[:, :-1, :]
-        states = states.reshape(-1, self.config.state_dim)
+        # states = states.reshape(-1, self.config.state_dim)
 
         # We need this for matrix multiplication with w1
-        agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
+        # agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
+        Logger().debug(
+            f"[{self.name}] agent_qs (shape.after): {agent_qs.shape}"
+        )
+        Logger().debug(f"[{self.name}] states (shape.after): {states.shape}")
+        Logger().debug(f"[{self.name}] states: {states}")
 
         # ---------------- First layer ---------------- #
 
@@ -130,6 +154,9 @@ class QMixer(nn.Module):
         b1 = self.hyper_b_1(states)
         w1 = w1.view(-1, self.config.n_agents, self.config.embed_dim)
         b1 = b1.view(-1, 1, self.config.embed_dim)
+
+        Logger().debug(f"[{self.name}] w1 (shape): {w1.shape}")
+        Logger().debug(f"[{self.name}] b1 (shape): {b1.shape}")
 
         # ELU activation
         hidden = F.elu(T.bmm(agent_qs, w1) + b1)
@@ -149,7 +176,8 @@ class QMixer(nn.Module):
         y = T.bmm(hidden, w_final) + v
 
         # Reshape and return
-        q_tot = y.view(batch_size, -1, 1)
+        # q_tot = y.view(batch_size, -1, 1)
+        q_tot = y.view(B, Tq, 1)
 
         # Qtot​(s,a)= fθ(Q1​, ..., QN​) + V(s)
         return q_tot

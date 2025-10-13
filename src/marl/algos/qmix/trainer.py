@@ -17,6 +17,7 @@ class QmixTrainer(Trainer):
     def __init__(
         self,
         buffer: ReplayBufferBase,
+        buffer_type: Literal["episode", "prioritized", "standard"],
         mac: MAC,
         mixer: QMixer,
         target_mac: MAC,
@@ -24,6 +25,7 @@ class QmixTrainer(Trainer):
         config: QmixBaseConfig,
     ):
         self.buffer = buffer
+        self.buffer_type = buffer_type
         self.mac = mac
         self.mixer = mixer
         self.target_mac = target_mac
@@ -37,16 +39,41 @@ class QmixTrainer(Trainer):
         self.params = list(self.mac.parameters()) + list(
             self.mixer.parameters()
         )
-        self.optimizer = optim.RMSprop(
-            params=self.params,
-            lr=config.learning_rate,
-            alpha=config.optim_alpha,
-            eps=config.optim_eps,
-        )
+
+        self.__init_optimizer()
 
         self.training_steps = 0
 
-    def train(self) -> None:
+    def __init_optimizer(self) -> None:
+        if self.config.optimizer == "adam":
+            self.optimizer = optim.Adam(
+                params=self.params,
+                lr=self.config.learning_rate,
+                eps=self.config.optim_eps,
+                maximize=True,
+                fused=True,
+            )
+        elif self.config.optimizer == "adamw":
+            self.optimizer = optim.AdamW(
+                params=self.params,
+                lr=self.config.learning_rate,
+                eps=self.config.optim_eps,
+                maximize=True,
+                fused=True,
+            )
+        elif self.config.optimizer == "rms":
+            self.optimizer = optim.RMSprop(
+                params=self.params,
+                lr=self.config.learning_rate,
+                alpha=self.config.optim_alpha,
+                eps=self.config.optim_eps,
+            )
+        else:
+            raise ValueError(
+                f"Invalid otpimizer selected: {self.config.optimizer}"
+            )
+
+    def train(self) -> float:
         Logger().debug(f"Buffer size: {len(self.buffer)}")
         batch = self.buffer.sample(self.config.batch_size)
 
@@ -58,19 +85,16 @@ class QmixTrainer(Trainer):
         # For QMIX episode batch
         batch = self._to_device(batch)
 
-        # (batch, T)
-        rewards = batch["rewards"][:, :-1]
-
         # (batch, T, n_agents, 1)
-        actions = batch["actions"][:, :-1]
-
+        actions = batch["actions"]
         # (batch, T)
-        dones = batch["dones"][:, :-1].float()
-
+        dones = batch["dones"].float()
         # (batch, T)
-        # TODO: Adjust buffer
-        mask = batch["mask"][:, :-1].float()
-        mask[:, 1:] = mask[:, 1:] * (1 - dones[:, :-1])
+        mask = batch["mask"].float()
+        mask[:, 1:] = mask[:, 1:] * (1 - dones[:, 1:])
+        # (batch, T)
+        rewards = batch["rewards"]
+        states_input = batch["state"]
 
         # (batch, T + 1, n_agents, n_actions)
         avail_actions = batch["avail_actions"]
@@ -88,16 +112,24 @@ class QmixTrainer(Trainer):
         # (batch, T, n_agents)
         chosen_qs = T.gather(mac_out, dim=-1, index=actions).squeeze(-1)
 
-        Logger().debug(f"MAC out: {mac_out}")
+        Logger().debug(f"MAC out {mac_out.shape}: {mac_out}")
+        Logger().debug(f"Target out {target_mac_out.shape}: {target_mac_out}")
         Logger().debug(f"Chosen Qs: {chosen_qs}")
         Logger().debug(f"Actions: {actions}")
+        Logger().debug(f"States: {states_input}")
 
         # Mask out invalid actions in target Qs
         masked_target_mac_out = target_mac_out.clone()
-        masked_target_mac_out[avail_actions[:, 1:] == 0] = -9999999
-        target_max_qvals = masked_target_mac_out.max(dim=-1)[0]
-
-        states_input = batch["state"][:, 1:-1]
+        masked_target_mac_out.masked_fill_(
+            avail_actions.narrow(
+                1,
+                avail_actions.size(1) - masked_target_mac_out.size(1),
+                masked_target_mac_out.size(1),
+            )
+            == 0,
+            -1e9,
+        )
+        target_max_qvals = masked_target_mac_out.max(dim=-1).values
 
         # Mix agent individual Qs into global Q-tot
         # (batch, T, 1)
@@ -109,13 +141,19 @@ class QmixTrainer(Trainer):
         Logger().debug(f"target_max_qvals (shape): {target_max_qvals.shape}")
         Logger().debug(f"target_states (shape): {batch["state"][:, 1:].shape}")
 
-        target_q_tot = self.target_mixer(
-            target_max_qvals[:, :-1].to(self.config.device),
-            states_input.to(self.config.device),
-        )
+        if self._is_episode_buffer():
+            target_q_tot = self.target_mixer(
+                target_max_qvals.to(self.config.device),
+                states_input.to(self.config.device),
+            )
+        elif self._is_standard_buffer():
+            target_q_tot = self.target_mixer(
+                target_max_qvals.to(self.config.device),
+                states_input.to(self.config.device),
+            )
 
-        Logger().debug(f"rewards (shape): {rewards.shape}")
-        Logger().debug(f"dones (shape): {dones.shape}")
+        Logger().debug(f"rewards: {rewards.shape}")
+        Logger().debug(f"dones: {dones.shape}")
         Logger().debug(f"target_q_tot: {target_q_tot.shape}")
 
         # TD target
@@ -134,12 +172,18 @@ class QmixTrainer(Trainer):
         # masked_td_error = td_error * mask.unsqueeze(-1)
         loss = (masked_td_error**2).sum() / mask.sum()
 
+        Logger().debug(f"mask: {mask}")
+        Logger().debug(f"td_error: {td_error}")
+        Logger().debug(f"masked_td_error: {masked_td_error}")
         Logger().debug(f"Loss: {loss}")
 
         # Optimizer
         self.optimizer.zero_grad()
         loss.backward()
-        clip_grad_norm_(self.params, self.config.grad_norm_clip)
+
+        if self.config.is_grad_norm_clip_enabled:
+            clip_grad_norm_(self.params, self.config.grad_norm_clip)
+
         self.optimizer.step()
 
         self.training_steps += 1
@@ -147,6 +191,12 @@ class QmixTrainer(Trainer):
             self._update_targets()
 
         return loss
+
+    def _is_episode_buffer(self) -> bool:
+        return self.buffer_type == "episode"
+
+    def _is_standard_buffer(self) -> bool:
+        return self.buffer_type == "standard"
 
     def _get_q_values_v1(
         self, mac: MAC, batch: Dict[str, T.Tensor]
@@ -194,7 +244,7 @@ class QmixTrainer(Trainer):
         if mode == "regular":
             indices = range(0, Tlen)
         elif mode == "target":
-            indices = range(1, T_1)
+            indices = range(Tlen, T_1)
         else:
             raise ValueError("Unknown mode for getting Q-values")
 
@@ -236,10 +286,15 @@ class QmixTrainer(Trainer):
         return result
 
     def _update_targets(self) -> None:
-        self.target_mac.load_state(self.mac)
+        self.target_mac.load_state(
+            other=self.mac,
+            update=self.config.target_update_mode,
+            tau=self.config.tau,
+        )
+
         self.target_mixer.load_state_dict(self.mixer.state_dict())
 
-    def log_batch_shapes(self, batch: dict[str, T.Tensor]):
+    def _log_batch_shapes(self, batch: dict[str, T.Tensor]):
         Logger().debug("Batch tensor shapes:")
 
         for k, v in batch.items():

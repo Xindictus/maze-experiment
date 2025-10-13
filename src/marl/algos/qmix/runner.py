@@ -1,6 +1,6 @@
 import math
 import time
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 from joblib import dump
@@ -10,7 +10,7 @@ from src.config.full_config import FullConfig
 from src.game.experiment import Experiment
 from src.game.game_controller import GameController
 from src.marl.algos.qmix import MAC, QmixTrainer
-from src.marl.buffers.episode_replay_buffer import EpisodeReplayBuffer
+from src.marl.buffers import ReplayBufferBase
 from src.utils.logger import Logger
 
 
@@ -21,7 +21,7 @@ class QmixRunner:
         game_controller: GameController,
         mac: MAC,
         trainer: QmixTrainer,
-        replay_buffer: EpisodeReplayBuffer,
+        replay_buffer: ReplayBufferBase,
     ):
         self.config = config
         self.out_dir = config.out_dir
@@ -29,6 +29,7 @@ class QmixRunner:
         self.mac = mac
         self.trainer = trainer
         self.replay_buffer = replay_buffer
+        self.replay_buffer_type = config.experiment.buffer_type
 
         self.mode = config.experiment.mode
         self.goal = config.game.goal
@@ -39,21 +40,26 @@ class QmixRunner:
         self.action_duration = config.experiment.action_duration
         self.popup_window_time = config.gui.popup_window_time
         self.log_interval = config.experiment.log_interval
+        self.epsilon = self.config.qmix.epsilon
 
         self.path_to_save = f"results/{self.mode}/QMIX"
-        self.best_game_score = 0
+        self.best_game_score = -9_999
         self.last_score = 0
         self.duration_pause_total = 0
         self.current_block = 0
-        self.epsilon = self.config.qmix.epsilon
 
         # TODO: Dirty - Refactor
+        self.to_dump = ["epsilons", "losses", "rewards", "wins"]
         self.epsilons = []
         self.losses = []
         self.rewards = []
+        self.wins = {}
 
     def run(self):
         for block in range(self.max_blocks):
+            if block not in self.wins:
+                self.wins[block] = {"train": [], "test": []}
+
             Logger().info(f"Train Block: {block}")
             self.run_block(block, mode="train")
 
@@ -63,43 +69,48 @@ class QmixRunner:
             Logger().info(f"Save checkpoint: {block}")
             self.save_chkp()
 
-        Logger().info("QMIX Training Complete")
+        total_test_wins = sum(
+            sum(self.wins[v]["test"]) for _, v in enumerate(self.wins)
+        )
+        total_train_wins = sum(
+            sum(self.wins[v]["train"]) for _, v in enumerate(self.wins)
+        )
+
+        Logger().info(
+            f"[Block #{block}]: QMIX training complete | "
+            f"Total train wins: {total_train_wins} | "
+            f"Total test wins: {total_test_wins}"
+        )
+
         self.maze.finished()
 
-        # TODO: Dirty - Refactor
-        dump(
-            self.epsilons,
-            f"{self.out_dir}/epsilons.joblib",
-            compress=("gzip", 5),
-        )
-        dump(
-            self.rewards,
-            f"{self.out_dir}/rewards.joblib",
-            compress=("gzip", 5),
-        )
-        dump(
-            self.losses,
-            f"{self.out_dir}/losses.joblib",
-            compress=("gzip", 5),
-        )
+        self.save_results()
 
     def run_block(self, block_number: int, mode: str):
         max_rounds = int(self.games_per_block)
 
+        experiment = Experiment(self.config.qmix)
+
         for round in range(max_rounds):
             is_paused = True
+
             while is_paused:
                 Logger().info("Game Reseting")
                 Logger().info(f"Starting block {block_number}, round {round}")
-                prev_raw_obs, setting_up_duration, is_paused = self.maze.reset(
-                    mode
-                )
+                (
+                    prev_raw_obs,
+                    init_ball_pos_r,
+                    setting_up_duration,
+                    is_paused,
+                ) = self.maze.reset(mode)
 
-            experiment = Experiment(self.config.qmix)
             prev_normalized_obs = experiment._normalize_global_state(
                 prev_raw_obs
             )
-            experiment.global_observation = prev_normalized_obs
+            experiment.global_observation = (
+                prev_normalized_obs,
+                init_ball_pos_r,
+            )
 
             Logger().debug(
                 f"prev_normalized_obs (shape): {prev_normalized_obs.shape}"
@@ -134,7 +145,8 @@ class QmixRunner:
                 action_timer_start = time.perf_counter()
 
                 actions = self.mac.select_actions(
-                    experiment,
+                    observations=local_obs,
+                    # experiment,
                     epsilon=self.epsilon,
                     mode=mode,
                 )
@@ -177,6 +189,7 @@ class QmixRunner:
                     action_pair,
                     internet_delay,
                     dist_travelled,
+                    init_ball_pos,
                 ) = self.maze.step(
                     action_agent=env_actions,
                     timed_out=timed_out,
@@ -193,7 +206,10 @@ class QmixRunner:
                 normalized_obs_next = experiment._normalize_global_state(
                     next_raw_obs
                 )
-                experiment.global_observation = normalized_obs_next
+                experiment.global_observation = (
+                    normalized_obs_next,
+                    init_ball_pos,
+                )
 
                 Logger().debug(f"Normalized OBS (Next): {normalized_obs_next}")
 
@@ -217,26 +233,28 @@ class QmixRunner:
 
                 # Append to our buffer episode only when it's train blocks
                 if mode == "train":
-                    states[step_counter - 1] = transition
-
-                    # episode.append(transition)
-                    # log_msg = f"[Round {round}] Episode size: {len(episode)}"
-                    # Logger().debug(log_msg)
-
-                # if len(episode) == self.config.qmix.batch_episode_size:
-                #     self.replay_buffer.add(
-                #         episode=self._pack_episode(episode=list(episode))
-                #     )
-
-                # Logger().debug(f"Replay buffer: {self.replay_buffer.list()}")
+                    if self._is_episode_buffer():
+                        states[step_counter - 1] = transition
+                    elif self._is_standard_buffer():
+                        self.replay_buffer.add(
+                            transition=self._pack_transition(transition)
+                        )
 
                 episode_reward += reward
+                goal_reached = done and not timed_out
 
+                # TODO: Improve
                 if done:
                     if not timed_out:
                         Logger().info("Goal reached")
+
+                        if mode == "train":
+                            self.wins[block_number][mode].append(1)
                     else:
                         Logger().info("Timeout")
+
+                        if mode == "train":
+                            self.wins[block_number][mode].append(0)
 
                     end = time.perf_counter()
                     Logger().info(f"Round duration: {(end - t_start):0.2f}")
@@ -251,18 +269,17 @@ class QmixRunner:
                 # Logger().info(
                 #     f"Action duration {(self.action_duration * 1000):.2f}ms | "
                 #     + f"Redundant duration {(redundant_end_duration * 1000):.2f}ms | "
-                #     + f"Maze time {(maze_time * 1000):.2f}ms | "
-                #     + f"Transition timer {(transition_timer * 1000):.2f}ms | "
+                #     + f"Maze time {(maze_time * 1000):.2f}ms"
                 # )
 
             self.last_score = episode_reward
-            # TODO: Doesn't work
             self.best_game_score = max(self.best_game_score, episode_reward)
 
             Logger().info(
                 f"[{mode.upper()}] Block {block_number} | Round {round} | "
                 f"Reward: {episode_reward:.2f} | Steps: {step_counter} | "
-                f"Best: {self.best_game_score:.2f} | Epsilon: {self.epsilon}"
+                f"Goal reached: {goal_reached} | Best: {self.best_game_score:.2f} | "
+                f"Epsilon: {self.epsilon:.2f}"
             )
 
             # TODO: Dirty - Refactor
@@ -270,20 +287,16 @@ class QmixRunner:
             self.rewards.append(episode_reward)
 
             if mode == "train":
-                windows = self._sliding_windows(
-                    states, self.config.qmix.batch_episode_size
-                )
+                if self._is_episode_buffer():
+                    windows = self._sliding_windows(
+                        states, self.config.qmix.batch_episode_size
+                    )
 
-                if windows:
-                    packed = [
-                        self._pack_episode(episode=win) for win in windows
-                    ]
-                    self.replay_buffer.add_many(packed)
-
-                # TODO: Packs leftover transitions into an episode
-                # self.replay_buffer.add(
-                #     self._pack_episode(episode=list(episode))
-                # )
+                    if windows:
+                        packed = [
+                            self._pack_episode(episode=win) for win in windows
+                        ]
+                        self.replay_buffer.add_many(packed)
 
                 Logger().info(f"Buffer size: {len(self.replay_buffer)}")
 
@@ -294,8 +307,8 @@ class QmixRunner:
                     Logger().info("Training...")
 
                     pbar = tqdm(
-                        range(self.config.experiment.epochs),
-                        desc="Epochs",
+                        range(self.config.experiment.update_cycles),
+                        desc="Update Cycles",
                         dynamic_ncols=True,
                     )
 
@@ -316,7 +329,8 @@ class QmixRunner:
                 )
 
                 self.epsilon = self.config.qmix.epsilon * (
-                    0.85 ** (block_number * max_rounds + (round + 1))
+                    (1 - self.config.qmix.epsilon_decay_rate)
+                    ** (block_number * max_rounds + (round + 1))
                 )
 
     def _sliding_windows(self, transitions, W: int):
@@ -331,6 +345,15 @@ class QmixRunner:
 
         # creates shallow sublists
         return [transitions[i : i + W] for i in range(L - W + 1)]
+
+    def _is_episode_buffer(self):
+        return self.config.experiment.buffer_type == "episode"
+
+    def _is_standard_buffer(self):
+        return self.config.experiment.buffer_type == "standard"
+
+    def _pack_transition(self, transition: Dict[str, Any]) -> Dict:
+        return self._pack_episode([transition])
 
     def _pack_episode(self, episode: List[Dict]) -> Dict:
         t = len(episode)
@@ -390,3 +413,13 @@ class QmixRunner:
 
     def save_chkp(self) -> None:
         pass
+
+    def save_results(self) -> None:
+        for name in self.to_dump:
+            val = getattr(self, name)
+
+            dump(
+                val,
+                f"{self.out_dir}/{name}.joblib",
+                compress=("gzip", 5),
+            )

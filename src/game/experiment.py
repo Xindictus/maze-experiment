@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List
 
 import numpy as np
 import torch as T
@@ -20,11 +20,13 @@ class Experiment:
         return self._global_obs.get_state()
 
     @global_observation.setter
-    def global_observation(self, val: List[float]):
+    def global_observation(self, val: Dict[List[float], List[int]]):
+        # val contains both the state and the initial ball position
         self._global_obs = Observation(
             config=self._config,
-            normalized=self._normalize_global_state(val),
-            raw_input=val,
+            normalized=self._normalize_global_state(val[0]),
+            init_ball_pos=val[1],
+            raw_input=val[0],
         )
 
     def _normalize_feature(
@@ -60,7 +62,6 @@ class Experiment:
 
         return np.clip(norm_observation, -1.3, 1.3)
 
-    # TODO: Ask about local observation order
     def get_local_obs(self, agent_id: int) -> np.ndarray:
         if agent_id == 0:
             return self._global_obs.slice([0, 2, 4, 6])
