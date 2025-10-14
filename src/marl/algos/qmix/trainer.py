@@ -258,7 +258,7 @@ class QmixTrainer(Trainer):
                 obs = batch["obs"][:, t, agent_id, :]
 
                 # (batch, n_actions)
-                q = mac.forward(agent_id, obs)
+                q, _ = mac.forward(agent_id, obs)
                 q_at_t.append(q)
 
             # (batch, n_agents, n_actions)

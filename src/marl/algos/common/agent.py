@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import torch as T
 from pydantic import BaseModel
@@ -24,7 +25,9 @@ class Agent(ABC):
         self.h_out = None
 
     @abstractmethod
-    def forward(self, obs: T.Tensor) -> T.Tensor:
+    def forward(
+        self, obs: T.Tensor, hidden: Optional[T.Tensor] = None
+    ) -> T.Tensor:
         raise NotImplementedError
 
     @abstractmethod

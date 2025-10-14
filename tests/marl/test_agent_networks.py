@@ -22,7 +22,7 @@ def test_qmix_qnet_network_output_shape():
     config = create_config()
     model = QmixQNetNetwork(config)
     obs = torch.rand(1, config.input_dim)
-    out = model(obs)
+    out, _ = model(obs)
     assert out.shape == (1, config.n_actions)
 
 
@@ -30,7 +30,7 @@ def skip_test_qmix_gru_network_output_shape():
     config = create_config()
     model = QmixGRUNetwork(config)
     obs = torch.rand(1, config.input_dim)
-    out = model(obs)
+    out, _ = model(obs)
     assert out.shape == (1, config.n_actions)
 
 
@@ -38,7 +38,7 @@ def test_qmix_qnet_device_consistency():
     config = create_config()
     model = QmixQNetNetwork(config)
     obs = torch.rand(1, config.input_dim)
-    out = model(obs)
+    out, _ = model(obs)
     assert out.device.type == torch.device(config.device).type
 
 
@@ -46,5 +46,5 @@ def skip_test_qmix_gru_device_consistency():
     config = create_config()
     model = QmixGRUNetwork(config)
     obs = torch.rand(1, config.input_dim)
-    out = model(obs)
+    out, _ = model(obs)
     assert out.device.type == torch.device(config.device).type

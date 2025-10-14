@@ -26,10 +26,12 @@ class QmixNetwork(AgentNetwork, ABC):
 
         return q_values
 
-    def forward(self, obs: T.Tensor) -> T.Tensor:
+    def forward(
+        self, obs: T.Tensor, hidden: Optional[T.Tensor] = None
+    ) -> T.Tensor:
         obs = obs.to(self.config.device)
         q_values = self.net(obs)
-        return self.enforce_output_shape(q_values)
+        return (self.enforce_output_shape(q_values), hidden)
 
 
 class QmixDuelingNetwork(QmixNetwork):
@@ -51,7 +53,7 @@ class QmixGRUNetwork(QmixNetwork):
             input_size=self.hidden_dim,
             hidden_size=self.hidden_dim,
             num_layers=self.n_layers,
-            batch_first=True,
+            # batch_first=True,
             bias=True,
             dropout=0.0,
             bidirectional=False,
