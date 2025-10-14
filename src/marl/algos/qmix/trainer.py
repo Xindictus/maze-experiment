@@ -239,12 +239,18 @@ class QmixTrainer(Trainer):
         Returns Q-values: (batch, T + 1, n_agents, n_actions)
         """
         B, T_1, N, _ = batch["obs"].shape
+        E_S = self.config.batch_episode_size
+
         Tlen = T_1 - 1
 
         if mode == "regular":
             indices = range(0, Tlen)
         elif mode == "target":
-            indices = range(Tlen, T_1)
+            indices = (
+                range(T_1 - E_S, T_1)
+                if self._is_episode_buffer()
+                else range(Tlen, T_1)
+            )
         else:
             raise ValueError("Unknown mode for getting Q-values")
 
