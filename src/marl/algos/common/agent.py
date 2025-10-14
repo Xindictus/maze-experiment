@@ -21,6 +21,7 @@ class Agent(ABC):
         self.network = network
         self.observation: Observation = None
         self.name: str = name
+        self.h_out = None
 
     @abstractmethod
     def forward(self, obs: T.Tensor) -> T.Tensor:
