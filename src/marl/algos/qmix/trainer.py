@@ -198,6 +198,12 @@ class QmixTrainer(Trainer):
     def _is_standard_buffer(self) -> bool:
         return self.buffer_type == "standard"
 
+    def _is_gru_agent(self) -> bool:
+        return self.config.agent_network_type == "gru"
+
+    def _is_qnet_agent(self) -> bool:
+        return self.config.agent_network_type == "gru"
+
     def _get_q_values_v1(
         self, mac: MAC, batch: Dict[str, T.Tensor]
     ) -> T.Tensor:

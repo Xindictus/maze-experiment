@@ -9,6 +9,9 @@ from src.config.validators import must_be_power_of_two
 class QmixBaseConfig(BaseModel):
     PROCESSED: ClassVar[bool] = False
 
+    # The type of agent network to be used
+    agent_network_type: Literal["qnet", "gru"] = Field(default="qnet")
+
     # The number of transition states saved in each episode
     batch_episode_size: int = Field(default=16, ge=2, le=4096)
 
