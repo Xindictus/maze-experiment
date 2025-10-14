@@ -44,6 +44,13 @@ class MAC:
         """
         return self.agents[agent_id].forward(obs)
 
+    def batch_forward(self, agent_id: int, obs: T.Tensor) -> T.Tensor:
+        """
+        Forward pass for a single agent for a batch.
+        Used currently only for GRU agents.
+        """
+        return self.agents[agent_id].network.batch_forward(obs)
+
     def select_actions(
         self,
         observations: List[float],

@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch as T
 import torch.nn as nn
@@ -53,7 +53,7 @@ class QmixGRUNetwork(QmixNetwork):
             input_size=self.hidden_dim,
             hidden_size=self.hidden_dim,
             num_layers=self.n_layers,
-            # batch_first=True,
+            batch_first=True,
             bias=True,
             dropout=0.0,
             bidirectional=False,
@@ -71,11 +71,27 @@ class QmixGRUNetwork(QmixNetwork):
             device=self.config.device,
         )
 
-    def forward(
-        self, obs: T.Tensor, hidden: Optional[T.Tensor] = None
+    def batch_forward(
+        self,
+        obs: T.Tensor,
     ) -> T.Tensor:
         obs = obs.to(self.config.device)
-        obs_dims = obs.dim()
+        B, _, _ = obs.shape
+
+        x = self.relu(self.fc_in(obs))
+
+        hidden = self.init_hidden(batch_size=B)
+        gru_out, _ = self.gru(x, hidden)
+
+        q_seq = self.fc_out(gru_out)
+        q_seq = self.enforce_output_shape(q_seq)
+
+        return q_seq
+
+    def forward(
+        self, obs: T.Tensor, hidden: Optional[T.Tensor] = None
+    ) -> Tuple[T.Tensor, T.Tensor]:
+        obs = obs.to(self.config.device)
 
         hidden = (
             self.init_hidden(batch_size=1)
@@ -83,42 +99,18 @@ class QmixGRUNetwork(QmixNetwork):
             else hidden.to(self.config.device)
         )
 
-        if obs_dims == 1:
-            # [1, 1, obs]
-            obs = obs.unsqueeze(0).unsqueeze(1)
-        elif obs_dims == 3:
-            # [B, T, dims]
-            pass
-        else:
-            raise ValueError(
-                f"Obs dimensions must be either [obs] or [B,obs], got {obs.shape}"
-            )
+        obs = obs.unsqueeze(0).unsqueeze(1)
 
-        B = obs.size(0)
         x = self.relu(self.fc_in(obs))
-
-        from src.utils.logger import Logger
-
-        Logger().info(B)
-        Logger().info(x.shape)
-        Logger().info(hidden.shape)
 
         # [B, T, H] | [num_layers, B, H]
         gru_out, h_out = self.gru(x, hidden)
-
-        Logger().info(gru_out.shape)
-        Logger().info(h_out.shape)
 
         # [B, T, A]
         q = self.fc_out(gru_out)
         q = self.enforce_output_shape(q)
 
-        Logger().info(q.shape)
-        Logger().info(q)
-
-        if B == 1:
-            q = q.unsqueeze(0).unsqueeze(1)
-        # import sys; sys.exit(1)
+        q = q.unsqueeze(0).unsqueeze(1)
 
         return q, h_out
 

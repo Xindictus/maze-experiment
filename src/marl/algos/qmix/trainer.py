@@ -202,7 +202,7 @@ class QmixTrainer(Trainer):
         return self.config.agent_network_type == "gru"
 
     def _is_qnet_agent(self) -> bool:
-        return self.config.agent_network_type == "gru"
+        return self.config.agent_network_type == "qnet"
 
     def _get_q_values_v1(
         self, mac: MAC, batch: Dict[str, T.Tensor]
@@ -262,23 +262,43 @@ class QmixTrainer(Trainer):
 
         all_qs = []
 
-        for t in indices:
-            q_at_t = []
+        if self._is_gru_agent():
+            Logger().debug("Using GRU agent network!")
 
             for agent_id in range(N):
-                # (batch, obs_dim)
-                obs = batch["obs"][:, t, agent_id, :]
+                # (batch, T, obs_dim)
+                obs = batch["obs"][:, :T_1, agent_id, :]
 
-                # (batch, n_actions)
-                q, _ = mac.forward(agent_id, obs)
-                q_at_t.append(q)
+                # (batch, T, n_actions)
+                q = mac.batch_forward(agent_id, obs)
+                Logger().debug(f"Agent {agent_id} Qs: {q}")
 
-            # (batch, n_agents, n_actions)
-            q_at_t = T.stack(q_at_t, dim=1)
+                all_qs.append(q)
 
-            all_qs.append(q_at_t)
+            return T.stack(all_qs, dim=2)
+        elif self._is_qnet_agent():
+            Logger().debug("Using QNet agent network!")
 
-        return T.stack(all_qs, dim=1)
+            for t in indices:
+                q_at_t = []
+
+                for agent_id in range(N):
+                    # (batch, obs_dim)
+                    obs = batch["obs"][:, t, agent_id, :]
+
+                    # (batch, n_actions)
+                    q, _ = mac.forward(agent_id, obs)
+                    q_at_t.append(q)
+
+                # (batch, n_agents, n_actions)
+                q_at_t = T.stack(q_at_t, dim=1)
+                Logger().debug(f"Agent {agent_id} Qs: {q_at_t}")
+
+                all_qs.append(q_at_t)
+
+            return T.stack(all_qs, dim=1)
+        else:
+            raise ValueError("Unknown agent network type")
 
     def _to_device(self, batch: dict[str, Any]) -> dict[str, T.Tensor]:
         result = {}
