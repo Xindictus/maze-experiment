@@ -4,7 +4,7 @@ import torch as T
 
 from src.config.qmix_base import QmixBaseConfig
 from src.marl.algos.common import ActionSpace, Observation
-from src.marl.algos.qmix import QmixAgent, QmixQNetNetwork
+from src.marl.algos.qmix import QmixAgent, QmixGRUNetwork, QmixQNetNetwork
 from src.utils.logger import Logger
 
 
@@ -18,7 +18,12 @@ class MAC:
             QmixAgent(
                 action_space=ActionSpace(list(range(3))),
                 config=config,
-                network=QmixQNetNetwork(config=config),
+                # TODO: Selection through CLI args
+                network=(
+                    QmixGRUNetwork(config=config)
+                    if config.agent_network_type == "gru"
+                    else QmixQNetNetwork(config=config)
+                ),
                 name=f"Agent-[{i + 1:03d}]",
             )
             for i in range(config.n_agents)
@@ -38,6 +43,13 @@ class MAC:
         Forward pass for a single agent.
         """
         return self.agents[agent_id].forward(obs)
+
+    def batch_forward(self, agent_id: int, obs: T.Tensor) -> T.Tensor:
+        """
+        Forward pass for a single agent for a batch.
+        Used currently only for GRU agents.
+        """
+        return self.agents[agent_id].network.batch_forward(obs)
 
     def select_actions(
         self,

@@ -63,8 +63,9 @@ class QmixRunner:
             Logger().info(f"Train Block: {block}")
             self.run_block(block, mode="train")
 
-            Logger().info(f"Test Block: {block}")
-            self.run_block(block, mode="test")
+            # TODO: Adjust with CLI arg
+            # Logger().info(f"Test Block: {block}")
+            # self.run_block(block, mode="test")
 
             Logger().info(f"Save checkpoint: {block}")
             self.save_chkp()
