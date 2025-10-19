@@ -116,18 +116,27 @@ class QMixer(nn.Module):
         of our current 3D tensor.
         """
         Logger().debug(f"[{self.name}] states: {states}")
+        Logger().debug(f"[{self.name}] agent_qs: {agent_qs}")
 
         B, Tq, N = agent_qs.shape
 
+        # TODO: Assumes that episode stride is always 1.
+        #       Will need to adjust this to accommodate for strides > 1.
         if self.name == "MAIN":
             states = states[:, :Tq, :]
+            agent_qs = agent_qs[:, :Tq, :]
         elif self.name == "TARGET":
-            states = states[:, -1:, :]
+            states = states[:, 1 : Tq + 1, :]
+            agent_qs = agent_qs[:, 1 : Tq + 1, :]
         else:
             raise ValueError("Invalid mixer name")
 
         Logger().debug(f"[{self.name}] states (shape.slice): {states.shape}")
+        Logger().debug(
+            f"[{self.name}] agent_qs (agent_qs.slice): {agent_qs.shape}"
+        )
 
+        Tq = agent_qs.shape[1]
         states = states.reshape(B * states.shape[1], -1)
         agent_qs = agent_qs.reshape(B * Tq, 1, N)
 
@@ -137,7 +146,7 @@ class QMixer(nn.Module):
         # We need this for matrix multiplication with w1
         # agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
         Logger().debug(
-            f"[{self.name}] agent_qs (shape.after): {agent_qs.shape}"
+            f"[{self.name}] agent_qs (agent_qs.after): {agent_qs.shape}"
         )
         Logger().debug(f"[{self.name}] states (shape.after): {states.shape}")
         Logger().debug(f"[{self.name}] states: {states}")
