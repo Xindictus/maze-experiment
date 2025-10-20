@@ -3,6 +3,7 @@ import time
 from typing import Any, Dict, List
 
 import numpy as np
+import psutil
 from joblib import dump
 from tqdm import tqdm
 
@@ -140,138 +141,160 @@ class QmixRunner:
 
             t_start = time.perf_counter()
 
-            while True:
-                step_counter += 1
+            with (
+                tqdm(total=100, desc="ram %", position=0) as rambar,
+                tqdm(total=100, desc="cpu %", position=1) as cpubar,
+                tqdm(
+                    total=self.total_steps, desc="steps", position=2
+                ) as stepbar,
+            ):
+                while True:
+                    step_counter += 1
 
-                action_timer_start = time.perf_counter()
+                    # TODO: Arguable for refresh rate
+                    if step_counter % 2 == 0:
+                        rambar.n = psutil.virtual_memory().percent
+                        cpubar.n = psutil.cpu_percent()
+                        stepbar.n = step_counter
+                        rambar.refresh()
+                        cpubar.refresh()
+                        stepbar.refresh()
 
-                actions = self.mac.select_actions(
-                    observations=local_obs,
-                    # experiment,
-                    epsilon=self.epsilon,
-                    mode=mode,
-                )
+                    action_timer_start = time.perf_counter()
 
-                self.action_duration = time.perf_counter() - action_timer_start
+                    actions = self.mac.select_actions(
+                        observations=local_obs,
+                        # experiment,
+                        epsilon=self.epsilon,
+                        mode=mode,
+                    )
 
-                """
-                The game understands actions only in terms of angle
-                direction. Hence, we convert agent actions to the game
-                specific actions (-1, 0, 1).
-                """
-                env_actions = experiment.get_env_actions(actions=actions)
+                    self.action_duration = (
+                        time.perf_counter() - action_timer_start
+                    )
 
-                if mode == "test":
-                    Logger().debug(f"actions: {actions}")
+                    """
+                    The game understands actions only in terms of angle
+                    direction. Hence, we convert agent actions to the game
+                    specific actions (-1, 0, 1).
+                    """
+                    env_actions = experiment.get_env_actions(actions=actions)
 
-                # TODO: Original
-                # timed_out = (
-                #     time.perf_counter()
-                #     - t_start
-                #     - redundant_end_duration
-                #     # - self.action_duration
-                #     >= self.max_game_duration
-                # ) or step_counter >= 200
+                    if mode == "test":
+                        Logger().debug(f"actions: {actions}")
 
-                timed_out = step_counter >= self.total_steps
+                    # TODO: Original
+                    # timed_out = (
+                    #     time.perf_counter()
+                    #     - t_start
+                    #     - redundant_end_duration
+                    #     # - self.action_duration
+                    #     >= self.max_game_duration
+                    # ) or step_counter >= 200
 
-                display_text = (
-                    f"Block {block_number} | "
-                    + f"Round {round} | "
-                    + f"Step {step_counter} | "
-                )
+                    timed_out = step_counter >= self.total_steps
 
-                (
-                    next_raw_obs,
-                    reward,
-                    done,
-                    fps,
-                    pause_duration,
-                    action_pair,
-                    internet_delay,
-                    dist_travelled,
-                    init_ball_pos,
-                ) = self.maze.step(
-                    action_agent=env_actions,
-                    timed_out=timed_out,
-                    action_duration=self.action_duration,
-                    prev_obs=prev_raw_obs,
-                    mode=mode,
-                    text=display_text,
-                )
+                    display_text = (
+                        f"Block {block_number} | "
+                        + f"Round {round} | "
+                        + f"Step {step_counter} | "
+                    )
 
-                redundant_end_duration += internet_delay
-                self.duration_pause_total += internet_delay
+                    (
+                        next_raw_obs,
+                        reward,
+                        done,
+                        fps,
+                        pause_duration,
+                        action_pair,
+                        internet_delay,
+                        dist_travelled,
+                        init_ball_pos,
+                    ) = self.maze.step(
+                        action_agent=env_actions,
+                        timed_out=timed_out,
+                        action_duration=self.action_duration,
+                        prev_obs=prev_raw_obs,
+                        mode=mode,
+                        text=display_text,
+                    )
 
-                # Normalize global state
-                normalized_obs_next = experiment._normalize_global_state(
-                    next_raw_obs
-                )
-                experiment.global_observation = (
-                    normalized_obs_next,
-                    init_ball_pos,
-                )
+                    redundant_end_duration += internet_delay
+                    self.duration_pause_total += internet_delay
 
-                Logger().debug(f"Normalized OBS (Next): {normalized_obs_next}")
+                    # Normalize global state
+                    normalized_obs_next = experiment._normalize_global_state(
+                        next_raw_obs
+                    )
+                    experiment.global_observation = (
+                        normalized_obs_next,
+                        init_ball_pos,
+                    )
 
-                next_local_obs = [
-                    experiment.get_local_obs(agent_id)
-                    for agent_id in range(self.config.qmix.n_agents)
-                ]
-                next_global_state = experiment.global_observation
+                    Logger().debug(
+                        f"Normalized OBS (Next): {normalized_obs_next}"
+                    )
 
-                transition = {
-                    "obs": local_obs,
-                    "state": global_state,
-                    "actions": actions,
-                    "reward": reward,
-                    "next_obs": next_local_obs,
-                    "next_state": next_global_state,
-                    "done": done,
-                }
+                    next_local_obs = [
+                        experiment.get_local_obs(agent_id)
+                        for agent_id in range(self.config.qmix.n_agents)
+                    ]
+                    next_global_state = experiment.global_observation
 
-                Logger().debug(f"Transition: {transition}")
+                    transition = {
+                        "obs": local_obs,
+                        "state": global_state,
+                        "actions": actions,
+                        "reward": reward,
+                        "next_obs": next_local_obs,
+                        "next_state": next_global_state,
+                        "done": done,
+                    }
 
-                # Append to our buffer episode only when it's train blocks
-                if mode == "train":
-                    if self._is_episode_buffer():
-                        states[step_counter - 1] = transition
-                    elif self._is_standard_buffer():
-                        self.replay_buffer.add(
-                            transition=self._pack_transition(transition)
+                    Logger().debug(f"Transition: {transition}")
+
+                    # Append to our buffer episode only when it's train blocks
+                    if mode == "train":
+                        if self._is_episode_buffer():
+                            states[step_counter - 1] = transition
+                        elif self._is_standard_buffer():
+                            self.replay_buffer.add(
+                                transition=self._pack_transition(transition)
+                            )
+
+                    episode_reward += reward
+                    goal_reached = done and not timed_out
+
+                    # TODO: Improve
+                    if done:
+                        if not timed_out:
+                            Logger().info("Goal reached")
+
+                            if mode == "train":
+                                self.wins[block_number][mode].append(1)
+                        else:
+                            Logger().info("Timeout")
+
+                            if mode == "train":
+                                self.wins[block_number][mode].append(0)
+
+                        end = time.perf_counter()
+                        Logger().info(
+                            f"Round duration: {(end - t_start):0.2f}"
                         )
 
-                episode_reward += reward
-                goal_reached = done and not timed_out
+                        time.sleep(self.popup_window_time)
+                        break
 
-                # TODO: Improve
-                if done:
-                    if not timed_out:
-                        Logger().info("Goal reached")
+                    # update obs
+                    local_obs = next_local_obs
+                    global_state = next_global_state
 
-                        if mode == "train":
-                            self.wins[block_number][mode].append(1)
-                    else:
-                        Logger().info("Timeout")
-
-                        if mode == "train":
-                            self.wins[block_number][mode].append(0)
-
-                    end = time.perf_counter()
-                    Logger().info(f"Round duration: {(end - t_start):0.2f}")
-
-                    time.sleep(self.popup_window_time)
-                    break
-
-                # update obs
-                local_obs = next_local_obs
-                global_state = next_global_state
-
-                # Logger().info(
-                #     f"Action duration {(self.action_duration * 1000):.2f}ms | "
-                #     + f"Redundant duration {(redundant_end_duration * 1000):.2f}ms | "
-                #     + f"Maze time {(maze_time * 1000):.2f}ms"
-                # )
+                    # Logger().info(
+                    #     f"Action duration {(self.action_duration * 1000):.2f}ms | "
+                    #     + f"Redundant duration {(redundant_end_duration * 1000):.2f}ms | "
+                    #     + f"Maze time {(maze_time * 1000):.2f}ms"
+                    # )
 
             self.last_score = episode_reward
             self.best_game_score = max(self.best_game_score, episode_reward)
