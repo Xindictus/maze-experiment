@@ -83,7 +83,7 @@ class QmixBaseConfig(BaseModel):
     )
 
     """
-    Epsilon value for RMSprop optimizer.
+    Epsilon value for optimizer.
     """
     optim_eps: float = Field(default=1e-7, ge=0.0)
 

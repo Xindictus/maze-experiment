@@ -50,7 +50,7 @@ class QmixTrainer(Trainer):
                 params=self.params,
                 lr=self.config.learning_rate,
                 eps=self.config.optim_eps,
-                maximize=True,
+                maximize=False,
                 fused=True,
             )
         elif self.config.optimizer == "adamw":
@@ -58,7 +58,7 @@ class QmixTrainer(Trainer):
                 params=self.params,
                 lr=self.config.learning_rate,
                 eps=self.config.optim_eps,
-                maximize=True,
+                maximize=False,
                 fused=True,
             )
         elif self.config.optimizer == "rms":
