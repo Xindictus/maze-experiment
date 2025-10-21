@@ -22,7 +22,7 @@ class Agent(ABC):
         self.network = network
         self.observation: Observation = None
         self.name: str = name
-        self.h_out = None
+        self.h_out: Optional[T.Tensor] = None
 
     @abstractmethod
     def forward(
@@ -33,3 +33,6 @@ class Agent(ABC):
     @abstractmethod
     def select_action(self, obs: T.Tensor, epsilon: float) -> int:
         raise NotImplementedError
+
+    def init_hidden(self) -> None:
+        self.h_out = None

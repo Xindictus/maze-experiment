@@ -95,6 +95,10 @@ class QmixRunner:
         for round in range(max_rounds):
             is_paused = True
 
+            # Initialize hidden states for all agents
+            # at the start of each round - GRU only
+            self.mac.init_hidden()
+
             while is_paused:
                 Logger().info("Game Reseting")
                 Logger().info(f"Starting block {block_number}, round {round}")

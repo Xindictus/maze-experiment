@@ -34,9 +34,8 @@ class MAC:
         """
         Initializes hidden states for all agents - GRU only
         """
-        pass
-        # for agent in self.agents:
-        #     agent.network.init_hidden(batch size ??)
+        for agent in self.agents:
+            agent.init_hidden()
 
     def forward(self, agent_id: int, obs: T.Tensor) -> T.Tensor:
         """
