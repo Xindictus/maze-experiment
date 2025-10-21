@@ -99,9 +99,6 @@ class QMixer(nn.Module):
         # - weight clipping
         # - dropout in hypernetworks
 
-        # Store original batch size (episodes) before flattening for mixing
-        # batch_size = agent_qs.size(0)
-
         """
         States has the shape [batch_size, episode_length, state_dim]
 
@@ -140,11 +137,6 @@ class QMixer(nn.Module):
         states = states.reshape(B * states.shape[1], -1)
         agent_qs = agent_qs.reshape(B * Tq, 1, N)
 
-        # states = states[:, :-1, :]
-        # states = states.reshape(-1, self.config.state_dim)
-
-        # We need this for matrix multiplication with w1
-        # agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
         Logger().debug(
             f"[{self.name}] agent_qs (agent_qs.after): {agent_qs.shape}"
         )
@@ -185,7 +177,6 @@ class QMixer(nn.Module):
         y = T.bmm(hidden, w_final) + v
 
         # Reshape and return
-        # q_tot = y.view(batch_size, -1, 1)
         q_tot = y.view(B, Tq, 1)
 
         # Qtot​(s,a)= fθ(Q1​, ..., QN​) + V(s)
