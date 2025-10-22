@@ -18,7 +18,6 @@ class MAC:
             QmixAgent(
                 action_space=ActionSpace(list(range(3))),
                 config=config,
-                # TODO: Selection through CLI args
                 network=(
                     QmixGRUNetwork(config=config)
                     if config.agent_network_type == "gru"
@@ -69,7 +68,6 @@ class MAC:
             obs = Observation(
                 config=self.config,
                 normalized=observations[agent_id],
-                # normalized=env.get_local_obs(agent_id),
             )
 
             if mode == "test":

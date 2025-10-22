@@ -333,10 +333,12 @@ class QmixRunner:
                     }
                 )
 
-                self.epsilon = self.config.qmix.epsilon * (
-                    (1 - self.config.qmix.epsilon_decay_rate)
-                    ** (block_number * max_rounds + (round + 1))
-                )
+                # Decay epsilon until 0.01
+                if self.epsilon > 0.01:
+                    self.epsilon = self.config.qmix.epsilon * (
+                        (1 - self.config.qmix.epsilon_decay_rate)
+                        ** (block_number * max_rounds + (round + 1))
+                    )
 
     def _sliding_windows(self, transitions, W: int):
         # trim None
