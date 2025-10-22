@@ -46,6 +46,7 @@ class QmixRunner:
             eps_max=self.config.qmix.max_epsilon,
             eps_min=self.config.qmix.min_epsilon,
             T=(self.max_blocks * self.games_per_block),
+            method=self.config.qmix.epsilon_decay_method,
         )
 
         self.path_to_save = f"results/{self.mode}/QMIX"
@@ -346,7 +347,7 @@ class QmixRunner:
                     }
                 )
 
-                self.epsilon = self.eps_dr.linear(
+                self.epsilon = self.eps_dr.decay(
                     self._global_round(block_number, max_rounds, round)
                 )
 

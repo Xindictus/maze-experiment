@@ -29,6 +29,16 @@ class QmixBaseConfig(BaseModel):
     # TODO-DEPRECATE
     epsilon_decay_rate: float = Field(default=0.05, ge=0.0)
 
+    # The method to use for epsilon decay
+    epsilon_decay_method: Literal[
+        "linear",
+        "exp_half_life",
+        "polynomial",
+        "inverse_time",
+        "logistic",
+        "cosine",
+    ] = Field(default="linear")
+
     # Discount factor for future rewards.
     gamma: float = Field(default=0.99, ge=0.0, le=1.0)
 
