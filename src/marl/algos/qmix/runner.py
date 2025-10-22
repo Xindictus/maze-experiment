@@ -9,6 +9,7 @@ from tqdm import tqdm
 from src.config.full_config import FullConfig
 from src.game.experiment import Experiment
 from src.game.game_controller import GameController
+from src.marl.algos.common.epsilon_decay import EpsilonDecayRate
 from src.marl.algos.qmix import MAC, QmixTrainer
 from src.marl.buffers import ReplayBufferBase
 from src.utils.logger import Logger
@@ -40,7 +41,12 @@ class QmixRunner:
         self.action_duration = config.experiment.action_duration
         self.popup_window_time = config.gui.popup_window_time
         self.log_interval = config.experiment.log_interval
-        self.epsilon = self.config.qmix.epsilon
+        self.epsilon = self.config.qmix.max_epsilon
+        self.eps_dr = EpsilonDecayRate(
+            eps_max=self.config.qmix.max_epsilon,
+            eps_min=self.config.qmix.min_epsilon,
+            T=(self.max_blocks * self.games_per_block),
+        )
 
         self.path_to_save = f"results/{self.mode}/QMIX"
         self.best_game_score = -9_999
@@ -280,11 +286,18 @@ class QmixRunner:
             self.last_score = episode_reward
             self.best_game_score = max(self.best_game_score, episode_reward)
 
+            total_mode_wins = sum(
+                sum(self.wins[block].get(mode, [])) for block in self.wins
+            )
+
             Logger().info(
                 f"[{mode.upper()}] Block {block_number} | Round {round} | "
                 f"Reward: {episode_reward:.2f} | Steps: {step_counter} | "
-                f"Goal reached: {goal_reached} | Best: {self.best_game_score:.2f} | "
-                f"Epsilon: {self.epsilon:.2f}"
+                f"Goal reached: {goal_reached} | git Epsilon: {self.epsilon:.4f}"
+            )
+            Logger().info(
+                f"Total Wins for [{mode.upper()}]: {total_mode_wins} | "
+                f"Best: {self.best_game_score:.2f}"
             )
 
             # TODO: Dirty - Refactor
@@ -333,12 +346,12 @@ class QmixRunner:
                     }
                 )
 
-                # Decay epsilon until 0.01
-                if self.epsilon > 0.01:
-                    self.epsilon = self.config.qmix.epsilon * (
-                        (1 - self.config.qmix.epsilon_decay_rate)
-                        ** (block_number * max_rounds + (round + 1))
-                    )
+                self.epsilon = self.eps_dr.linear(
+                    self._global_round(block_number, max_rounds, round)
+                )
+
+    def _global_round(self, block_number, max_rounds, round_idx):
+        return block_number * max_rounds + (round_idx + 1)
 
     def _sliding_windows(self, transitions, W: int):
         # trim None

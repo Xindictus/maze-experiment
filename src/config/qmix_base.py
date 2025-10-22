@@ -25,10 +25,8 @@ class QmixBaseConfig(BaseModel):
     # Final output dimension of the mixer hidden layer
     embed_dim: int = Field(default=32, gt=0)
 
-    # Epsilon-greedy exploration strategy parameter
-    epsilon: float = Field(default=0.9)
-
     # The decay rate factor for epsilon-greedy exploration
+    # TODO-DEPRECATE
     epsilon_decay_rate: float = Field(default=0.05, ge=0.0)
 
     # Discount factor for future rewards.
@@ -64,6 +62,10 @@ class QmixBaseConfig(BaseModel):
 
     # Learning rate
     learning_rate: float = Field(default=0.0003, ge=1e-6, le=1)
+
+    # Epsilon-greedy exploration strategy parameters
+    max_epsilon: float = Field(default=1)
+    min_epsilon: float = Field(default=0.01)
 
     # Number of actions
     n_actions: int = Field(default=3)

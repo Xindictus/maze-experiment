@@ -1,46 +1,39 @@
-class EpsilonDecay:
-    def __init__(self, eps0: float, eps_min: float, X: int, p: float):
-        # TODO: PYDOC
-        self.eps0 = eps0
+import math
+
+
+class EpsilonDecayRate:
+    def __init__(self, eps_max=1.0, eps_min=0.01, T=1000):
+        self.eps_max = eps_max
         self.eps_min = eps_min
-        self.X = X
-        self.p = p
-        # current step
-        self.t = 0
-        self.epsilon = eps0
+        self.T = T
 
-    def step(self) -> float:
-        # Advance one round and return the new epsilon.
-        if self.t >= self.X:
-            self.epsilon = self.eps_min
-            return self.epsilon
-
-        # compute factor
-        num = (
-            self.eps_min
-            + (self.eps0 - self.eps_min)
-            * (1 - (self.t + 1) / self.X) ** self.p
+    def linear(self, t):
+        return max(
+            self.eps_min,
+            self.eps_max - (self.eps_max - self.eps_min) * (t / self.T),
         )
-        den = (
-            self.eps_min
-            + (self.eps0 - self.eps_min) * (1 - self.t / self.X) ** self.p
+
+    def exp_half_life(self, t, H=150):
+        return self.eps_min + (self.eps_max - self.eps_min) * (0.5 ** (t / H))
+
+    def polynomial(self, t, p=2.0):
+        x = max(0.0, 1.0 - t / self.T)
+        return self.eps_min + (self.eps_max - self.eps_min) * (x**p)
+
+    def inverse_time(self, t, k=200.0, alpha=1.0):
+        return self.eps_min + (self.eps_max - self.eps_min) / (
+            (1.0 + t / k) ** alpha
         )
-        d_t = num / den
 
-        # update epsilon
-        self.epsilon *= d_t
-        self.t += 1
-        return self.epsilon
+    def logistic(self, t, t_mid=None, s=100.0):
+        if t_mid is None:
+            t_mid = 0.5 * self.T
+        return self.eps_min + (self.eps_max - self.eps_min) / (
+            1.0 + math.exp((t - t_mid) / s)
+        )
 
-
-###############
-# Example use #
-###############
-# decay = EpsilonDecay(
-#     eps0=self.epsilon,
-#     eps_min=0.01,
-#     X=(self.max_blocks * self.games_per_block),
-#     p=0.5,
-# )
-#
-# epsilon = self.decay.step()
+    def cosine(self, t):
+        x = min(1.0, t / self.T)
+        return self.eps_min + 0.5 * (self.eps_max - self.eps_min) * (
+            1.0 + math.cos(math.pi * x)
+        )
