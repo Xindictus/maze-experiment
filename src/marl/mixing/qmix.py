@@ -24,13 +24,17 @@ class QMixer(nn.Module):
     """
 
     def __init__(
-        self, config: QmixBaseConfig, name: Literal["MAIN", "TARGET"]
+        self,
+        config: QmixBaseConfig,
+        name: Literal["MAIN", "TARGET"],
+        buffer_type: Literal["episode", "standard"] = "episode",
     ):
         super(QMixer, self).__init__()
 
         Logger().debug(config)
         self.config = config
         self.name = name
+        self.buffer_type = buffer_type
 
         """
         ### Hypernet Layers == 1
@@ -85,6 +89,12 @@ class QMixer(nn.Module):
                     f"Unsupported hypernet_layers: {hyper_layers}"
                 )
 
+    def _is_episode_buffer(self) -> bool:
+        return self.buffer_type == "episode"
+
+    def _is_standard_buffer(self) -> bool:
+        return self.buffer_type == "standard"
+
     def forward(self, agent_qs: T.Tensor, states: T.Tensor) -> T.Tensor:
         Logger().debug(
             f"[{self.name}] agent_qs (shape.before): {agent_qs.shape}"
@@ -121,10 +131,14 @@ class QMixer(nn.Module):
         #       Will need to adjust this to accommodate for strides > 1.
         if self.name == "MAIN":
             states = states[:, :Tq, :]
-            agent_qs = agent_qs[:, :Tq, :]
+
+            if self._is_standard_buffer():
+                agent_qs = agent_qs[:, :Tq, :]
         elif self.name == "TARGET":
             states = states[:, 1 : Tq + 1, :]
-            agent_qs = agent_qs[:, 1 : Tq + 1, :]
+
+            if self._is_standard_buffer():
+                agent_qs = agent_qs[:, 1 : Tq + 1, :]
         else:
             raise ValueError("Invalid mixer name")
 

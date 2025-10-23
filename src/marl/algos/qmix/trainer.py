@@ -114,9 +114,9 @@ class QmixTrainer(Trainer):
 
         Logger().debug(f"MAC out {mac_out.shape}: {mac_out}")
         Logger().debug(f"Target out {target_mac_out.shape}: {target_mac_out}")
-        Logger().debug(f"Chosen Qs: {chosen_qs}")
-        Logger().debug(f"Actions: {actions}")
-        Logger().debug(f"States: {states_input}")
+        Logger().debug(f"Chosen Qs: {chosen_qs.shape}: {chosen_qs}")
+        Logger().debug(f"Actions: {actions.shape}: {actions}")
+        Logger().debug(f"States: {states_input.shape}: {states_input}")
 
         # Mask out invalid actions in target Qs
         masked_target_mac_out = target_mac_out.clone()
@@ -247,11 +247,16 @@ class QmixTrainer(Trainer):
         B, T_1, N, _ = batch["obs"].shape
         E_S = self.config.batch_episode_size
 
+        # TODO: Works for stride = 1 only
         Tlen = T_1 - 1
 
         if mode == "regular":
+            ep_idx_min = 0
+            ep_idx_max = Tlen
             indices = range(0, Tlen)
         elif mode == "target":
+            ep_idx_min = 1
+            ep_idx_max = T_1
             indices = (
                 range(T_1 - E_S, T_1)
                 if self._is_episode_buffer()
@@ -267,7 +272,7 @@ class QmixTrainer(Trainer):
 
             for agent_id in range(N):
                 # (batch, T, obs_dim)
-                obs = batch["obs"][:, :T_1, agent_id, :]
+                obs = batch["obs"][:, ep_idx_min:ep_idx_max, agent_id, :]
 
                 # (batch, T, n_actions)
                 q = mac.batch_forward(agent_id, obs)

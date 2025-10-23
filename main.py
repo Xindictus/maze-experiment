@@ -101,8 +101,17 @@ def run(
     else:
         raise ValueError("Unknown buffer type")
 
-    mixer = QMixer(config.qmix, "MAIN")
-    target_mixer = QMixer(config.qmix, "TARGET")
+    # Init mixers
+    mixer = QMixer(
+        config=config.qmix,
+        name="MAIN",
+        buffer_type=config.experiment.buffer_type,
+    )
+    target_mixer = QMixer(
+        config=config.qmix,
+        name="TARGET",
+        buffer_type=config.experiment.buffer_type,
+    )
     target_mixer.load_state_dict(mixer.state_dict())
 
     mac = MAC(config=config.qmix)
