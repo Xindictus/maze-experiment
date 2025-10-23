@@ -13,6 +13,7 @@ from src.marl.algos.common.epsilon_decay import EpsilonDecayRate
 from src.marl.algos.qmix import MAC, QmixTrainer
 from src.marl.buffers import ReplayBufferBase
 from src.utils.logger import Logger
+from src.utils.sigint import sigint_controller
 
 
 class QmixRunner:
@@ -62,7 +63,7 @@ class QmixRunner:
         self.rewards = []
         self.wins = {}
 
-    def run(self):
+    def _run_loop(self) -> None:
         for block in range(self.max_blocks):
             if block not in self.wins:
                 self.wins[block] = {"train": [], "test": []}
@@ -73,6 +74,10 @@ class QmixRunner:
             # TODO: Adjust with CLI arg
             # Logger().info(f"Test Block: {block}")
             # self.run_block(block, mode="test")
+
+            if sigint_controller.is_requested():
+                Logger().warning("Shutdown requested: aborting block!")
+                return
 
             Logger().info(f"Save checkpoint: {block}")
             self.save_chkp()
@@ -94,12 +99,26 @@ class QmixRunner:
 
         self.save_results()
 
+    def run(self) -> None:
+        try:
+            self._run_loop()
+        except KeyboardInterrupt:
+            if sigint_controller.is_requested():
+                Logger().warning("Shutdown requested, exiting...")
+        finally:
+            if sigint_controller.is_requested():
+                self.save_results()
+
     def run_block(self, block_number: int, mode: str):
         max_rounds = int(self.games_per_block)
 
         experiment = Experiment(self.config.qmix)
 
         for round in range(max_rounds):
+            if sigint_controller.is_requested():
+                Logger().warning("Shutdown requested: aborting round!")
+                return
+
             is_paused = True
 
             # Initialize hidden states for all agents
@@ -294,7 +313,7 @@ class QmixRunner:
             Logger().info(
                 f"[{mode.upper()}] Block {block_number} | Round {round} | "
                 f"Reward: {episode_reward:.2f} | Steps: {step_counter} | "
-                f"Goal reached: {goal_reached} | git Epsilon: {self.epsilon:.4f}"
+                f"Goal reached: {goal_reached} | Epsilon: {self.epsilon:.4f}"
             )
             Logger().info(
                 f"Total Wins for [{mode.upper()}]: {total_mode_wins} | "

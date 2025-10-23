@@ -1,5 +1,6 @@
 import json
 import random
+import signal
 import time
 import traceback
 from typing import Annotated, List, Literal
@@ -18,8 +19,14 @@ from src.marl.buffers import (
 from src.marl.mixing.qmix import QMixer
 from src.marl.rewards.reward_engines import GoalDistanceRewardEngine
 from src.utils.logger import LOG_LEVELS, Logger
+from src.utils.sigint import sigint_controller
 
 app = App()
+
+
+def _signal_handler(signum, frame):
+    Logger().warning("SIGINT received, shutting down...")
+    sigint_controller.request()
 
 
 @app.default
@@ -57,7 +64,7 @@ def run(
             consume_multiple=True,
         ),
     ] = [],
-):
+) -> int:
     log_lvl = LOG_LEVELS[log]
 
     # Parse overrides from list[str] ~> nested dict
@@ -123,8 +130,11 @@ def run(
         replay_buffer=buffer,
     )
 
-    # my_test(config)
+    signal.signal(signal.SIGINT, _signal_handler)
+
     runner.run()
+
+    return 0
 
 
 def my_test(config):
