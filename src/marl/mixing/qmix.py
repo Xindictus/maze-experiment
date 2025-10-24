@@ -142,9 +142,11 @@ class QMixer(nn.Module):
         else:
             raise ValueError("Invalid mixer name")
 
-        Logger().debug(f"[{self.name}] states (shape.slice): {states.shape}")
         Logger().debug(
-            f"[{self.name}] agent_qs (agent_qs.slice): {agent_qs.shape}"
+            f"[{self.name}] states (shape.slice): {states.shape}: {states}"
+        )
+        Logger().debug(
+            f"[{self.name}] agent_qs (agent_qs.slice): {agent_qs.shape}: {agent_qs}"
         )
 
         Tq = agent_qs.shape[1]

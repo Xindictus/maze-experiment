@@ -80,7 +80,6 @@ class QmixTrainer(Trainer):
         Logger().debug(f"Batch: {batch}")
         Logger().debug(f"actions shape: {batch["actions"].shape}")
         Logger().debug(f"avail_actions shape: {batch["avail_actions"].shape}")
-        # self.log_batch_shapes(batch)
 
         # For QMIX episode batch
         batch = self._to_device(batch)
@@ -141,16 +140,10 @@ class QmixTrainer(Trainer):
         Logger().debug(f"target_max_qvals (shape): {target_max_qvals.shape}")
         Logger().debug(f"target_states (shape): {batch["state"][:, 1:].shape}")
 
-        if self._is_episode_buffer():
-            target_q_tot = self.target_mixer(
-                target_max_qvals.to(self.config.device),
-                states_input.to(self.config.device),
-            )
-        elif self._is_standard_buffer():
-            target_q_tot = self.target_mixer(
-                target_max_qvals.to(self.config.device),
-                states_input.to(self.config.device),
-            )
+        target_q_tot = self.target_mixer(
+            target_max_qvals.to(self.config.device),
+            states_input.to(self.config.device),
+        )
 
         Logger().debug(f"rewards: {rewards.shape}")
         Logger().debug(f"dones: {dones.shape}")
