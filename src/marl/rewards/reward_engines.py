@@ -15,6 +15,9 @@ class SimpleRewardEngine(RewardEngine):
 
         return self.timeout_penalty
 
+    def reset(self) -> None:
+        pass
+
 
 class GoalDistanceRewardEngine(RewardEngine):
     def compute_reward(self, ctx: RewardContext) -> int:
@@ -28,6 +31,9 @@ class GoalDistanceRewardEngine(RewardEngine):
             return self.timeout_penalty
 
         return self.reward_scale * abs(ctx.distance_from_goal)
+
+    def reset(self) -> None:
+        pass
 
 
 class ProgressDistanceRewardEngine(RewardEngine):

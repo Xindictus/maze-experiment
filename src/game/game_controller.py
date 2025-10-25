@@ -225,3 +225,6 @@ class GameController:
             dist_travelled,
             res["init_ball_pos"],
         )
+
+    def reset_reward_engine(self) -> None:
+        self.reward_engine.reset()

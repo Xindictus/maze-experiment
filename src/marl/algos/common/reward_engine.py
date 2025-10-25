@@ -19,3 +19,7 @@ class RewardEngine(ABC):
     @abstractmethod
     def compute_reward(ctx: RewardContext) -> int:
         raise NotImplementedError
+
+    @abstractmethod
+    def reset(self) -> None:
+        raise NotImplementedError

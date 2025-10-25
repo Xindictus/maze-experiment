@@ -121,6 +121,7 @@ class QmixRunner:
             # Initialize hidden states for all agents
             # at the start of each round - GRU only
             self.mac.init_hidden()
+            self.maze.reset_reward_engine()
 
             while is_paused:
                 Logger().info("Game Reseting")
