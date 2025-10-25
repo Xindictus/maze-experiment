@@ -12,12 +12,16 @@ class RewardContext:
 
 @dataclass
 class RewardEngine(ABC):
-    goal_reward: int
-    reward_scale: int
-    timeout_penalty: int
+    goal_reward: float
+    min_distance_delta: float
+    reward_scale: float
+    stall_penalty: float
+    # number of steps to consider as stalling
+    stall_threshold: int
+    timeout_penalty: float
 
     @abstractmethod
-    def compute_reward(ctx: RewardContext) -> int:
+    def compute_reward(self, ctx: RewardContext) -> float:
         raise NotImplementedError
 
     @abstractmethod

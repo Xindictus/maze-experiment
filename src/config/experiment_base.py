@@ -27,13 +27,25 @@ class ExperimentBaseConfig(BaseModel):
     # Max duration per game in seconds
     max_duration: int = Field(default=40)
 
+    # Minimum distance delta to consider as progress
+    min_distance_delta: float = Field(default=0.01)
+
     # Selection of reward engine
-    reward_engine: Literal["simple", "goal_distance", "progress_distance"] = (
-        Field(default="goal_distance")
-    )
+    reward_engine: Literal[
+        "simple",
+        "goal_distance",
+        "progress_distance",
+        "progress_with_stalling",
+    ] = Field(default="goal_distance")
 
     # Scale for reward when not reaching goal
     reward_scale: float = Field(default=-0.1)
+
+    # Penalty for stalling
+    stall_penalty: float = Field(default=-1.0)
+
+    # Number of consecutive steps with no progress to consider as  stalling
+    stall_threshold: int = Field(default=8)
 
     # Penalty for timing out
     timed_out_penalty: float = Field(default=-1)

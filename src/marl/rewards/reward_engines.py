@@ -6,7 +6,7 @@ from src.utils.logger import Logger
 
 
 class SimpleRewardEngine(RewardEngine):
-    def compute_reward(self, ctx: RewardContext) -> int:
+    def compute_reward(self, ctx: RewardContext) -> float:
         logger = Logger().with_context("SimpleRewardEngine")
         logger.debug(f"Distance from goal: {ctx.distance_from_goal}")
 
@@ -20,7 +20,7 @@ class SimpleRewardEngine(RewardEngine):
 
 
 class GoalDistanceRewardEngine(RewardEngine):
-    def compute_reward(self, ctx: RewardContext) -> int:
+    def compute_reward(self, ctx: RewardContext) -> float:
         logger = Logger().with_context("GoalDistanceRewardEngine")
         logger.debug(f"Distance from goal: {ctx.distance_from_goal}")
 
@@ -39,7 +39,7 @@ class GoalDistanceRewardEngine(RewardEngine):
 class ProgressDistanceRewardEngine(RewardEngine):
     prev_distance: float = None
 
-    def compute_reward(self, ctx: RewardContext) -> int:
+    def compute_reward(self, ctx: RewardContext) -> float:
         logger = Logger().with_context("ProgressDistanceRewardEngine")
         logger.debug(
             f"Prev distance: {self.prev_distance} | "
@@ -60,6 +60,74 @@ class ProgressDistanceRewardEngine(RewardEngine):
 
         return self.reward_scale * delta
 
+    def reset(self) -> None:
+        self.prev_distance = None
+
+
+class ProgressWithStallingRewardEngine(RewardEngine):
+    prev_distance: float = None
+    stall_counter: int = 0
+
+    def compute_reward(self, ctx: RewardContext) -> float:
+        logger = Logger().with_context("ProgressWithStallingRewardEngine")
+        logger.debug(
+            f"Prev distance: {self.prev_distance} | "
+            f"Distance from goal: {ctx.distance_from_goal}"
+        )
+
+        if ctx.reached_goal and not ctx.timed_out:
+            return self.goal_reward
+
+        if ctx.timed_out:
+            return self.timeout_penalty
+
+        if self.prev_distance is None:
+            self.prev_distance = ctx.distance_from_goal
+
+        raw_delta = self.prev_distance - ctx.distance_from_goal
+
+        if raw_delta < self.min_distance_delta:
+            self.stall_counter += 1
+            logger.debug(
+                f"Stall counter increased to {self.stall_counter} "
+                f"(raw_delta: {raw_delta})"
+            )
+        else:
+            logger.debug(f"Stall counter reset to 0 (raw_delta: {raw_delta})")
+            self.stall_counter = 0
+
+        delta = raw_delta
+        extra_penalty = 0.0
+
+        if self.stall_counter >= self.stall_threshold:
+            extra_penalty = self.stall_penalty
+            logger.debug(
+                f"Stall threshold reached ({self.stall_counter} >= {self.stall_threshold}). "
+                f"Applying stall penalty {extra_penalty}."
+            )
+            # reset counter so we don't re-penalize every single step
+            self.stall_counter = 0
+            delta = 0.0
+
+        # Updates for next step
+        self.prev_distance = ctx.distance_from_goal
+
+        progress_reward = self.reward_scale * delta
+
+        total_reward = progress_reward + extra_penalty
+
+        logger.debug(
+            f"raw_delta={raw_delta}, delta_used={delta}, "
+            f"shaped_reward={progress_reward}, extra_penalty={extra_penalty}, "
+            f"total_reward={total_reward}"
+        )
+
+        return total_reward
+
+    def reset(self) -> None:
+        self.prev_distance = None
+        self.stall_counter = 0
+
 
 type ExportFN = Callable[[str], RewardEngine]
 
@@ -68,6 +136,7 @@ reward_engines: dict[str, ExportFN] = {
     "simple": SimpleRewardEngine,
     "goal_distance": GoalDistanceRewardEngine,
     "progress_distance": ProgressDistanceRewardEngine,
+    "progress_with_stalling": ProgressWithStallingRewardEngine,
 }
 
 
@@ -79,6 +148,9 @@ def get_reward_engine(name: str, config: ExperimentBaseConfig) -> RewardEngine:
 
     return engine(
         goal_reward=config.goal_reward,
+        min_distance_delta=config.min_distance_delta,
         reward_scale=config.reward_scale,
+        stall_penalty=config.stall_penalty,
+        stall_threshold=config.stall_threshold,
         timeout_penalty=config.timed_out_penalty,
     )
