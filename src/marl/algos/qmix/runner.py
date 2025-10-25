@@ -33,7 +33,6 @@ class QmixRunner:
         self.replay_buffer = replay_buffer
         self.replay_buffer_type = config.experiment.buffer_type
 
-        self.mode = config.experiment.mode
         self.goal = config.game.goal
         self.games_per_block = config.experiment.games_per_block
         self.max_blocks = config.experiment.max_blocks
@@ -41,7 +40,6 @@ class QmixRunner:
         self.total_steps = math.ceil(self.max_game_duration / 0.2)
         self.action_duration = config.experiment.action_duration
         self.popup_window_time = config.gui.popup_window_time
-        self.log_interval = config.experiment.log_interval
         self.epsilon = self.config.qmix.max_epsilon
         self.eps_dr = EpsilonDecayRate(
             eps_max=self.config.qmix.max_epsilon,
@@ -50,7 +48,6 @@ class QmixRunner:
             method=self.config.qmix.epsilon_decay_method,
         )
 
-        self.path_to_save = f"results/{self.mode}/QMIX"
         self.best_game_score = -9_999
         self.last_score = 0
         self.duration_pause_total = 0

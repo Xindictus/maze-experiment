@@ -17,7 +17,7 @@ from src.marl.buffers import (
     StandardReplayBuffer,
 )
 from src.marl.mixing.qmix import QMixer
-from src.marl.rewards.reward_engines import GoalDistanceRewardEngine
+from src.marl.rewards.reward_engines import get_reward_engine
 from src.utils.logger import LOG_LEVELS, Logger
 from src.utils.sigint import sigint_controller
 
@@ -85,10 +85,12 @@ def run(
     )
     Logger().info(f"[FULL-CONFIG]: {full_config}")
 
-    # TODO: Add reward engine via CLI
-    maze = GameController(
-        config=config, reward_engine=GoalDistanceRewardEngine
+    reward_engine = get_reward_engine(
+        name=config.experiment.reward_engine,
+        config=config.experiment,
     )
+
+    maze = GameController(config=config, reward_engine=reward_engine)
 
     mem_size = config.experiment.buffer_memory_size
     buffer_type = config.experiment.buffer_type

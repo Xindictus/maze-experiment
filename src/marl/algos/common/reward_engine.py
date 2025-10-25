@@ -10,8 +10,12 @@ class RewardContext:
     distance_from_goal: float = 0.0
 
 
+@dataclass
 class RewardEngine(ABC):
-    @staticmethod
+    goal_reward: int
+    reward_scale: int
+    timeout_penalty: int
+
     @abstractmethod
     def compute_reward(ctx: RewardContext) -> int:
         raise NotImplementedError
