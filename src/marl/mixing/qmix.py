@@ -24,13 +24,17 @@ class QMixer(nn.Module):
     """
 
     def __init__(
-        self, config: QmixBaseConfig, name: Literal["MAIN", "TARGET"]
+        self,
+        config: QmixBaseConfig,
+        name: Literal["MAIN", "TARGET"],
+        buffer_type: Literal["episode", "standard"] = "episode",
     ):
         super(QMixer, self).__init__()
 
         Logger().debug(config)
         self.config = config
         self.name = name
+        self.buffer_type = buffer_type
 
         """
         ### Hypernet Layers == 1
@@ -85,6 +89,12 @@ class QMixer(nn.Module):
                     f"Unsupported hypernet_layers: {hyper_layers}"
                 )
 
+    def _is_episode_buffer(self) -> bool:
+        return self.buffer_type == "episode"
+
+    def _is_standard_buffer(self) -> bool:
+        return self.buffer_type == "standard"
+
     def forward(self, agent_qs: T.Tensor, states: T.Tensor) -> T.Tensor:
         Logger().debug(
             f"[{self.name}] agent_qs (shape.before): {agent_qs.shape}"
@@ -98,9 +108,6 @@ class QMixer(nn.Module):
         # - layer norm & batch norm
         # - weight clipping
         # - dropout in hypernetworks
-
-        # Store original batch size (episodes) before flattening for mixing
-        # batch_size = agent_qs.size(0)
 
         """
         States has the shape [batch_size, episode_length, state_dim]
@@ -116,28 +123,38 @@ class QMixer(nn.Module):
         of our current 3D tensor.
         """
         Logger().debug(f"[{self.name}] states: {states}")
+        Logger().debug(f"[{self.name}] agent_qs: {agent_qs}")
 
         B, Tq, N = agent_qs.shape
 
+        # TODO: Assumes that episode stride is always 1.
+        #       Will need to adjust this to accommodate for strides > 1.
         if self.name == "MAIN":
             states = states[:, :Tq, :]
+
+            if self._is_standard_buffer():
+                agent_qs = agent_qs[:, :Tq, :]
         elif self.name == "TARGET":
-            states = states[:, -1:, :]
+            states = states[:, 1 : Tq + 1, :]
+
+            if self._is_standard_buffer():
+                agent_qs = agent_qs[:, 1 : Tq + 1, :]
         else:
             raise ValueError("Invalid mixer name")
 
-        Logger().debug(f"[{self.name}] states (shape.slice): {states.shape}")
+        Logger().debug(
+            f"[{self.name}] states (shape.slice): {states.shape}: {states}"
+        )
+        Logger().debug(
+            f"[{self.name}] agent_qs (agent_qs.slice): {agent_qs.shape}: {agent_qs}"
+        )
 
+        Tq = agent_qs.shape[1]
         states = states.reshape(B * states.shape[1], -1)
         agent_qs = agent_qs.reshape(B * Tq, 1, N)
 
-        # states = states[:, :-1, :]
-        # states = states.reshape(-1, self.config.state_dim)
-
-        # We need this for matrix multiplication with w1
-        # agent_qs = agent_qs.reshape(-1, 1, self.config.n_agents)
         Logger().debug(
-            f"[{self.name}] agent_qs (shape.after): {agent_qs.shape}"
+            f"[{self.name}] agent_qs (agent_qs.after): {agent_qs.shape}"
         )
         Logger().debug(f"[{self.name}] states (shape.after): {states.shape}")
         Logger().debug(f"[{self.name}] states: {states}")
@@ -176,7 +193,6 @@ class QMixer(nn.Module):
         y = T.bmm(hidden, w_final) + v
 
         # Reshape and return
-        # q_tot = y.view(batch_size, -1, 1)
         q_tot = y.view(B, Tq, 1)
 
         # Qtot​(s,a)= fθ(Q1​, ..., QN​) + V(s)

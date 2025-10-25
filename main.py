@@ -1,5 +1,6 @@
 import json
 import random
+import signal
 import time
 import traceback
 from typing import Annotated, List, Literal
@@ -16,10 +17,16 @@ from src.marl.buffers import (
     StandardReplayBuffer,
 )
 from src.marl.mixing.qmix import QMixer
-from src.marl.rewards.reward_engines import GoalDistanceRewardEngine
+from src.marl.rewards.reward_engines import get_reward_engine
 from src.utils.logger import LOG_LEVELS, Logger
+from src.utils.sigint import sigint_controller
 
 app = App()
+
+
+def _signal_handler(signum, frame):
+    Logger().warning("SIGINT received, shutting down...")
+    sigint_controller.request()
 
 
 @app.default
@@ -57,7 +64,7 @@ def run(
             consume_multiple=True,
         ),
     ] = [],
-):
+) -> int:
     log_lvl = LOG_LEVELS[log]
 
     # Parse overrides from list[str] ~> nested dict
@@ -78,10 +85,12 @@ def run(
     )
     Logger().info(f"[FULL-CONFIG]: {full_config}")
 
-    # TODO: Add reward engine via CLI
-    maze = GameController(
-        config=config, reward_engine=GoalDistanceRewardEngine
+    reward_engine = get_reward_engine(
+        name=config.experiment.reward_engine,
+        config=config.experiment,
     )
+
+    maze = GameController(config=config, reward_engine=reward_engine)
 
     mem_size = config.experiment.buffer_memory_size
     buffer_type = config.experiment.buffer_type
@@ -94,8 +103,17 @@ def run(
     else:
         raise ValueError("Unknown buffer type")
 
-    mixer = QMixer(config.qmix, "MAIN")
-    target_mixer = QMixer(config.qmix, "TARGET")
+    # Init mixers
+    mixer = QMixer(
+        config=config.qmix,
+        name="MAIN",
+        buffer_type=config.experiment.buffer_type,
+    )
+    target_mixer = QMixer(
+        config=config.qmix,
+        name="TARGET",
+        buffer_type=config.experiment.buffer_type,
+    )
     target_mixer.load_state_dict(mixer.state_dict())
 
     mac = MAC(config=config.qmix)
@@ -123,8 +141,11 @@ def run(
         replay_buffer=buffer,
     )
 
-    # my_test(config)
+    signal.signal(signal.SIGINT, _signal_handler)
+
     runner.run()
+
+    return 0
 
 
 def my_test(config):

@@ -9,9 +9,11 @@ from tqdm import tqdm
 from src.config.full_config import FullConfig
 from src.game.experiment import Experiment
 from src.game.game_controller import GameController
+from src.marl.algos.common.epsilon_decay import EpsilonDecayRate
 from src.marl.algos.qmix import MAC, QmixTrainer
 from src.marl.buffers import ReplayBufferBase
 from src.utils.logger import Logger
+from src.utils.sigint import sigint_controller
 
 
 class QmixRunner:
@@ -31,7 +33,6 @@ class QmixRunner:
         self.replay_buffer = replay_buffer
         self.replay_buffer_type = config.experiment.buffer_type
 
-        self.mode = config.experiment.mode
         self.goal = config.game.goal
         self.games_per_block = config.experiment.games_per_block
         self.max_blocks = config.experiment.max_blocks
@@ -39,10 +40,14 @@ class QmixRunner:
         self.total_steps = math.ceil(self.max_game_duration / 0.2)
         self.action_duration = config.experiment.action_duration
         self.popup_window_time = config.gui.popup_window_time
-        self.log_interval = config.experiment.log_interval
-        self.epsilon = self.config.qmix.epsilon
+        self.epsilon = self.config.qmix.max_epsilon
+        self.eps_dr = EpsilonDecayRate(
+            eps_max=self.config.qmix.max_epsilon,
+            eps_min=self.config.qmix.min_epsilon,
+            T=(self.max_blocks * self.games_per_block),
+            method=self.config.qmix.epsilon_decay_method,
+        )
 
-        self.path_to_save = f"results/{self.mode}/QMIX"
         self.best_game_score = -9_999
         self.last_score = 0
         self.duration_pause_total = 0
@@ -55,7 +60,7 @@ class QmixRunner:
         self.rewards = []
         self.wins = {}
 
-    def run(self):
+    def _run_loop(self) -> None:
         for block in range(self.max_blocks):
             if block not in self.wins:
                 self.wins[block] = {"train": [], "test": []}
@@ -63,8 +68,13 @@ class QmixRunner:
             Logger().info(f"Train Block: {block}")
             self.run_block(block, mode="train")
 
-            Logger().info(f"Test Block: {block}")
-            self.run_block(block, mode="test")
+            # TODO: Adjust with CLI arg
+            # Logger().info(f"Test Block: {block}")
+            # self.run_block(block, mode="test")
+
+            if sigint_controller.is_requested():
+                Logger().warning("Shutdown requested: aborting block!")
+                return
 
             Logger().info(f"Save checkpoint: {block}")
             self.save_chkp()
@@ -86,13 +96,31 @@ class QmixRunner:
 
         self.save_results()
 
+    def run(self) -> None:
+        try:
+            self._run_loop()
+        except KeyboardInterrupt:
+            if sigint_controller.is_requested():
+                Logger().warning("Shutdown requested, exiting...")
+        finally:
+            if sigint_controller.is_requested():
+                self.save_results()
+
     def run_block(self, block_number: int, mode: str):
         max_rounds = int(self.games_per_block)
 
         experiment = Experiment(self.config.qmix)
 
         for round in range(max_rounds):
+            if sigint_controller.is_requested():
+                Logger().warning("Shutdown requested: aborting round!")
+                return
+
             is_paused = True
+
+            # Initialize hidden states for all agents
+            # at the start of each round - GRU only
+            self.mac.init_hidden()
 
             while is_paused:
                 Logger().info("Game Reseting")
@@ -275,11 +303,18 @@ class QmixRunner:
             self.last_score = episode_reward
             self.best_game_score = max(self.best_game_score, episode_reward)
 
+            total_mode_wins = sum(
+                sum(self.wins[block].get(mode, [])) for block in self.wins
+            )
+
             Logger().info(
                 f"[{mode.upper()}] Block {block_number} | Round {round} | "
                 f"Reward: {episode_reward:.2f} | Steps: {step_counter} | "
-                f"Goal reached: {goal_reached} | Best: {self.best_game_score:.2f} | "
-                f"Epsilon: {self.epsilon:.2f}"
+                f"Goal reached: {goal_reached} | Epsilon: {self.epsilon:.4f}"
+            )
+            Logger().info(
+                f"Total Wins for [{mode.upper()}]: {total_mode_wins} | "
+                f"Best: {self.best_game_score:.2f}"
             )
 
             # TODO: Dirty - Refactor
@@ -328,10 +363,12 @@ class QmixRunner:
                     }
                 )
 
-                self.epsilon = self.config.qmix.epsilon * (
-                    (1 - self.config.qmix.epsilon_decay_rate)
-                    ** (block_number * max_rounds + (round + 1))
+                self.epsilon = self.eps_dr.decay(
+                    self._global_round(block_number, max_rounds, round)
                 )
+
+    def _global_round(self, block_number, max_rounds, round_idx):
+        return block_number * max_rounds + (round_idx + 1)
 
     def _sliding_windows(self, transitions, W: int):
         # trim None

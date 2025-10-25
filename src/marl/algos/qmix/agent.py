@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from typing import Literal
+from typing import Literal, Optional
 
 import torch as T
 
@@ -24,8 +24,10 @@ class QmixAgent(Agent):
             name=name,
         )
 
-    def forward(self, obs: T.Tensor) -> T.Tensor:
-        return self.network(obs)
+    def forward(
+        self, obs: T.Tensor, hidden: Optional[T.Tensor] = None
+    ) -> T.Tensor:
+        return self.network(obs, hidden)
 
     def parameters(self, recurse: bool = True) -> Iterator[T.nn.Parameter]:
         return self.network.parameters(recurse=recurse)
@@ -39,7 +41,8 @@ class QmixAgent(Agent):
         Logger().debug(f"[{self.name}] Observation shape: {obs.shape}")
         Logger().debug(f"[{self.name}] Observation values: {obs}")
 
-        q_values = self.forward(obs)
+        q_values, h_out = self.forward(obs, hidden=self.h_out)
+        self.h_out = h_out
 
         if mode == "test":
             Logger().debug(f"[{self.name}] Q-Values: {q_values}")

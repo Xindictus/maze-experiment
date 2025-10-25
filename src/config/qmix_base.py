@@ -9,6 +9,9 @@ from src.config.validators import must_be_power_of_two
 class QmixBaseConfig(BaseModel):
     PROCESSED: ClassVar[bool] = False
 
+    # The type of agent network to be used
+    agent_network_type: Literal["qnet", "gru"] = Field(default="qnet")
+
     # The number of transition states saved in each episode
     batch_episode_size: int = Field(default=16, ge=2, le=4096)
 
@@ -22,11 +25,19 @@ class QmixBaseConfig(BaseModel):
     # Final output dimension of the mixer hidden layer
     embed_dim: int = Field(default=32, gt=0)
 
-    # Epsilon-greedy exploration strategy parameter
-    epsilon: float = Field(default=0.9)
-
     # The decay rate factor for epsilon-greedy exploration
+    # TODO-DEPRECATE
     epsilon_decay_rate: float = Field(default=0.05, ge=0.0)
+
+    # The method to use for epsilon decay
+    epsilon_decay_method: Literal[
+        "linear",
+        "exp_half_life",
+        "polynomial",
+        "inverse_time",
+        "logistic",
+        "cosine",
+    ] = Field(default="linear")
 
     # Discount factor for future rewards.
     gamma: float = Field(default=0.99, ge=0.0, le=1.0)
@@ -62,6 +73,10 @@ class QmixBaseConfig(BaseModel):
     # Learning rate
     learning_rate: float = Field(default=0.0003, ge=1e-6, le=1)
 
+    # Epsilon-greedy exploration strategy parameters
+    max_epsilon: float = Field(default=1)
+    min_epsilon: float = Field(default=0.01)
+
     # Number of actions
     n_actions: int = Field(default=3)
 
@@ -80,7 +95,7 @@ class QmixBaseConfig(BaseModel):
     )
 
     """
-    Epsilon value for RMSprop optimizer.
+    Epsilon value for optimizer.
     """
     optim_eps: float = Field(default=1e-7, ge=0.0)
 

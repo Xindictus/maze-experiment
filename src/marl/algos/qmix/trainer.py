@@ -50,7 +50,7 @@ class QmixTrainer(Trainer):
                 params=self.params,
                 lr=self.config.learning_rate,
                 eps=self.config.optim_eps,
-                maximize=True,
+                maximize=False,
                 fused=True,
             )
         elif self.config.optimizer == "adamw":
@@ -58,7 +58,7 @@ class QmixTrainer(Trainer):
                 params=self.params,
                 lr=self.config.learning_rate,
                 eps=self.config.optim_eps,
-                maximize=True,
+                maximize=False,
                 fused=True,
             )
         elif self.config.optimizer == "rms":
@@ -80,7 +80,6 @@ class QmixTrainer(Trainer):
         Logger().debug(f"Batch: {batch}")
         Logger().debug(f"actions shape: {batch["actions"].shape}")
         Logger().debug(f"avail_actions shape: {batch["avail_actions"].shape}")
-        # self.log_batch_shapes(batch)
 
         # For QMIX episode batch
         batch = self._to_device(batch)
@@ -114,9 +113,9 @@ class QmixTrainer(Trainer):
 
         Logger().debug(f"MAC out {mac_out.shape}: {mac_out}")
         Logger().debug(f"Target out {target_mac_out.shape}: {target_mac_out}")
-        Logger().debug(f"Chosen Qs: {chosen_qs}")
-        Logger().debug(f"Actions: {actions}")
-        Logger().debug(f"States: {states_input}")
+        Logger().debug(f"Chosen Qs: {chosen_qs.shape}: {chosen_qs}")
+        Logger().debug(f"Actions: {actions.shape}: {actions}")
+        Logger().debug(f"States: {states_input.shape}: {states_input}")
 
         # Mask out invalid actions in target Qs
         masked_target_mac_out = target_mac_out.clone()
@@ -141,16 +140,10 @@ class QmixTrainer(Trainer):
         Logger().debug(f"target_max_qvals (shape): {target_max_qvals.shape}")
         Logger().debug(f"target_states (shape): {batch["state"][:, 1:].shape}")
 
-        if self._is_episode_buffer():
-            target_q_tot = self.target_mixer(
-                target_max_qvals.to(self.config.device),
-                states_input.to(self.config.device),
-            )
-        elif self._is_standard_buffer():
-            target_q_tot = self.target_mixer(
-                target_max_qvals.to(self.config.device),
-                states_input.to(self.config.device),
-            )
+        target_q_tot = self.target_mixer(
+            target_max_qvals.to(self.config.device),
+            states_input.to(self.config.device),
+        )
 
         Logger().debug(f"rewards: {rewards.shape}")
         Logger().debug(f"dones: {dones.shape}")
@@ -198,6 +191,12 @@ class QmixTrainer(Trainer):
     def _is_standard_buffer(self) -> bool:
         return self.buffer_type == "standard"
 
+    def _is_gru_agent(self) -> bool:
+        return self.config.agent_network_type == "gru"
+
+    def _is_qnet_agent(self) -> bool:
+        return self.config.agent_network_type == "qnet"
+
     def _get_q_values_v1(
         self, mac: MAC, batch: Dict[str, T.Tensor]
     ) -> T.Tensor:
@@ -239,34 +238,65 @@ class QmixTrainer(Trainer):
         Returns Q-values: (batch, T + 1, n_agents, n_actions)
         """
         B, T_1, N, _ = batch["obs"].shape
+        E_S = self.config.batch_episode_size
+
+        # TODO: Works for stride = 1 only
         Tlen = T_1 - 1
 
         if mode == "regular":
+            ep_idx_min = 0
+            ep_idx_max = Tlen
             indices = range(0, Tlen)
         elif mode == "target":
-            indices = range(Tlen, T_1)
+            ep_idx_min = 1
+            ep_idx_max = T_1
+            indices = (
+                range(T_1 - E_S, T_1)
+                if self._is_episode_buffer()
+                else range(Tlen, T_1)
+            )
         else:
             raise ValueError("Unknown mode for getting Q-values")
 
         all_qs = []
 
-        for t in indices:
-            q_at_t = []
+        if self._is_gru_agent():
+            Logger().debug("Using GRU agent network!")
 
             for agent_id in range(N):
-                # (batch, obs_dim)
-                obs = batch["obs"][:, t, agent_id, :]
+                # (batch, T, obs_dim)
+                obs = batch["obs"][:, ep_idx_min:ep_idx_max, agent_id, :]
 
-                # (batch, n_actions)
-                q = mac.forward(agent_id, obs)
-                q_at_t.append(q)
+                # (batch, T, n_actions)
+                q = mac.batch_forward(agent_id, obs)
+                Logger().debug(f"Agent {agent_id} Qs: {q}")
 
-            # (batch, n_agents, n_actions)
-            q_at_t = T.stack(q_at_t, dim=1)
+                all_qs.append(q)
 
-            all_qs.append(q_at_t)
+            return T.stack(all_qs, dim=2)
+        elif self._is_qnet_agent():
+            Logger().debug("Using QNet agent network!")
 
-        return T.stack(all_qs, dim=1)
+            for t in indices:
+                q_at_t = []
+
+                for agent_id in range(N):
+                    # (batch, obs_dim)
+                    obs = batch["obs"][:, t, agent_id, :]
+
+                    # (batch, n_actions)
+                    q, _ = mac.forward(agent_id, obs)
+                    q_at_t.append(q)
+
+                # (batch, n_agents, n_actions)
+                q_at_t = T.stack(q_at_t, dim=1)
+                Logger().debug(f"Agent {agent_id} Qs: {q_at_t}")
+
+                all_qs.append(q_at_t)
+
+            return T.stack(all_qs, dim=1)
+        else:
+            raise ValueError("Unknown agent network type")
 
     def _to_device(self, batch: dict[str, Any]) -> dict[str, T.Tensor]:
         result = {}
