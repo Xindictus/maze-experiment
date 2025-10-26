@@ -141,7 +141,8 @@ class SpeedStallingRewardEngine(ProgressWithStallingRewardEngine):
         total_reward = super().compute_reward(ctx)
 
         if ctx.distance_from_goal <= self.goal_zone_radius:
-            speed_penalty = -self.speed_scale * ctx.ball_speed
+            effective_speed = max(0.0, ctx.ball_speed - self.speed_threshold)
+            speed_penalty = -self.speed_scale * effective_speed
         else:
             speed_penalty = 0.0
 
@@ -178,6 +179,7 @@ def get_reward_engine(name: str, config: ExperimentBaseConfig) -> RewardEngine:
         min_distance_delta=config.min_distance_delta,
         reward_scale=config.reward_scale,
         speed_scale=config.speed_scale,
+        speed_threshold=config.speed_threshold,
         stall_penalty=config.stall_penalty,
         stall_threshold=config.stall_threshold,
         timeout_penalty=config.timed_out_penalty,

@@ -18,6 +18,7 @@ class RewardEngine(ABC):
     min_distance_delta: float
     reward_scale: float
     speed_scale: float
+    speed_threshold: float
     stall_penalty: float
     # number of steps to consider as stalling
     stall_threshold: int

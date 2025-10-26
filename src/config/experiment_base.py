@@ -48,6 +48,9 @@ class ExperimentBaseConfig(BaseModel):
     # Scale for speed penalty
     speed_scale: float = Field(default=0.2)
 
+    # Speed threshold below which penalty is applied
+    speed_threshold: float = Field(default=0.8)
+
     # Penalty for stalling
     stall_penalty: float = Field(default=-1.0)
 
