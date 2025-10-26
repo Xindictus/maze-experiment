@@ -184,22 +184,14 @@ class GameController:
         human_action = res["human_action"]
         internet_pause = delay - duration_pause - action_duration
 
-        def get_distance_travelled(prev_obs, obs):
-            """
-            compounds the distance travelled by the ball
-            :param dist_travel: previous distance travelled
-            :param prev_observation: previous observation
-            :param observation: next observation
-            :return: the total travelled distance
-            """
-            return math.sqrt(
-                (prev_obs[0] - obs[0]) * (prev_obs[0] - obs[0])
-                + (prev_obs[1] - obs[1]) * (prev_obs[1] - obs[1])
-            )
-
-        dist_travelled = get_distance_travelled(prev_obs, self.observation)
+        # Note: Not based on normalized values
+        dist_travelled = self.__get_distance_travelled(
+            prev_obs, self.observation
+        )
+        ball_speed = self.__get_ball_speed(self.observation)
 
         ctx = RewardContext(
+            ball_speed=ball_speed,
             reached_goal=self.done,
             timed_out=timed_out,
             dist_travelled=dist_travelled,
@@ -224,6 +216,33 @@ class GameController:
             internet_pause,
             dist_travelled,
             res["init_ball_pos"],
+        )
+
+    def __get_ball_speed(self, obs: np.ndarray) -> float:
+        """
+        computes the speed of the ball from the observation
+        :param obs: current observation
+        :return: speed of the ball
+        """
+        Logger().debug(f"Observation for speed calculation: {obs}")
+
+        v_z = obs[2]
+        v_x = obs[3]
+
+        return math.sqrt(v_z * v_z + v_x * v_x)
+
+    def __get_distance_travelled(
+        self, prev_obs: np.ndarray, obs: np.ndarray
+    ) -> float:
+        """
+        compounds the distance travelled by the ball
+        :param prev_obs: previous observation
+        :param obs: next observation
+        :return: the total travelled distance
+        """
+        return math.sqrt(
+            (prev_obs[0] - obs[0]) * (prev_obs[0] - obs[0])
+            + (prev_obs[1] - obs[1]) * (prev_obs[1] - obs[1])
         )
 
     def reset_reward_engine(self) -> None:

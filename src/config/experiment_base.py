@@ -18,6 +18,9 @@ class ExperimentBaseConfig(BaseModel):
     # Number of rounds/games per block
     games_per_block: int = Field(default=5)
 
+    # Goal zone radius
+    goal_zone_radius: float = Field(default=0.05)
+
     # Reward for reaching the goal
     goal_reward: float = Field(default=10)
 
@@ -36,10 +39,14 @@ class ExperimentBaseConfig(BaseModel):
         "goal_distance",
         "progress_distance",
         "progress_with_stalling",
+        "speed_stalling",
     ] = Field(default="goal_distance")
 
     # Scale for reward when not reaching goal
     reward_scale: float = Field(default=-0.1)
+
+    # Scale for speed penalty
+    speed_scale: float = Field(default=0.2)
 
     # Penalty for stalling
     stall_penalty: float = Field(default=-1.0)

@@ -129,6 +129,31 @@ class ProgressWithStallingRewardEngine(RewardEngine):
         self.stall_counter = 0
 
 
+class SpeedStallingRewardEngine(ProgressWithStallingRewardEngine):
+    def compute_reward(self, ctx: RewardContext) -> float:
+        logger = Logger().with_context("SpeedStallingRewardEngine")
+        logger.debug(
+            f"Prev distance: {self.prev_distance} | "
+            f"Distance from goal: {ctx.distance_from_goal} | "
+            f"Ball speed: {ctx.ball_speed}"
+        )
+
+        total_reward = super().compute_reward(ctx)
+
+        if ctx.distance_from_goal <= self.goal_zone_radius:
+            speed_penalty = -self.speed_scale * ctx.ball_speed
+        else:
+            speed_penalty = 0.0
+
+        total_reward += speed_penalty
+
+        logger.debug(
+            f"speed_penalty={speed_penalty} | total_reward={total_reward}"
+        )
+
+        return total_reward
+
+
 type ExportFN = Callable[[str], RewardEngine]
 
 # Use registry pattern to get reward engine
@@ -137,6 +162,7 @@ reward_engines: dict[str, ExportFN] = {
     "goal_distance": GoalDistanceRewardEngine,
     "progress_distance": ProgressDistanceRewardEngine,
     "progress_with_stalling": ProgressWithStallingRewardEngine,
+    "speed_stalling": SpeedStallingRewardEngine,
 }
 
 
@@ -147,9 +173,11 @@ def get_reward_engine(name: str, config: ExperimentBaseConfig) -> RewardEngine:
         raise ValueError(f"Unknown reward engine: {name}")
 
     return engine(
+        goal_zone_radius=config.goal_zone_radius,
         goal_reward=config.goal_reward,
         min_distance_delta=config.min_distance_delta,
         reward_scale=config.reward_scale,
+        speed_scale=config.speed_scale,
         stall_penalty=config.stall_penalty,
         stall_threshold=config.stall_threshold,
         timeout_penalty=config.timed_out_penalty,
