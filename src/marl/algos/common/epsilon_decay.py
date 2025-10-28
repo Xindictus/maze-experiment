@@ -79,6 +79,6 @@ class EpsilonDecayRate:
             case "cosine":
                 return self.__cosine(t)
             case "original":
-                return self.__cosine(t)
+                return self.__original(t)
             case _:
                 raise ValueError(f"Unknown method: {self.method}")
