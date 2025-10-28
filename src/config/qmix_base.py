@@ -31,12 +31,13 @@ class QmixBaseConfig(BaseModel):
 
     # The method to use for epsilon decay
     epsilon_decay_method: Literal[
-        "linear",
-        "exp_half_life",
-        "polynomial",
-        "inverse_time",
-        "logistic",
         "cosine",
+        "exp_half_life",
+        "inverse_time",
+        "linear",
+        "logistic",
+        "original",
+        "polynomial",
     ] = Field(default="linear")
 
     # Discount factor for future rewards.
