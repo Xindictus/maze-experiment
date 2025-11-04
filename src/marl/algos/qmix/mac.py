@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 import torch as T
 
@@ -83,6 +83,15 @@ class MAC:
 
     def parameters(self) -> List[T.nn.Parameter]:
         return [p for agent in self.agents for p in agent.parameters()]
+
+    def agent_states(self) -> Dict[str, T.nn.Module]:
+        return {
+            idx: {
+                k: v.detach().cpu()
+                for k, v in agent.network.state_dict().items()
+            }
+            for idx, agent in enumerate(self.agents)
+        }
 
     @T.no_grad()
     def load_state(

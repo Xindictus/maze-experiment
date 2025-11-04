@@ -121,10 +121,10 @@ class QmixBaseConfig(BaseModel):
     # Restrict values to power of 2
     # TODO: hidden dim
     _check_power = field_validator(
+        # "batch_episode_size",
         "batch_size",
         "embed_dim",
         "hypernet_embed",
-        # "batch_episode_size", "batch_size", "embed_dim", "hypernet_embed"
     )(must_be_power_of_two)
 
     @model_validator(mode="after")

@@ -77,7 +77,8 @@ class QmixRunner:
                 return
 
             Logger().info(f"Save checkpoint: {block}")
-            self.save_chkp()
+
+        self.save_chkp()
 
         total_test_wins = sum(
             sum(self.wins[v]["test"]) for _, v in enumerate(self.wins)
@@ -451,7 +452,31 @@ class QmixRunner:
         }
 
     def save_chkp(self) -> None:
-        pass
+        base_path = f"{self.out_dir}"
+
+        # Save agent weights
+        agent_payload = {
+            "main": self.mac.agent_states(),
+            "target": self.trainer.target_mac.agent_states(),
+        }
+
+        dump(
+            agent_payload,
+            f"{base_path}/agents_chkp.joblib",
+            compress=("gzip", 5),
+        )
+
+        # Save mixer weights
+        mixer_payload = {
+            "main": self.trainer.mixer.mixer_state(),
+            "target": self.trainer.target_mixer.mixer_state(),
+        }
+
+        dump(
+            mixer_payload,
+            f"{base_path}/mixers_chkp.joblib",
+            compress=("gzip", 5),
+        )
 
     def save_results(self) -> None:
         for name in self.to_dump:
