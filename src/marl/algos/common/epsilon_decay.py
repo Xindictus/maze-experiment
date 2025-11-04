@@ -21,6 +21,8 @@ class EpsilonDecayRate:
         self.eps_min = eps_min
         self.T = T
         self.method = method
+        # TODO: Adjust to use decay rate from config if needed
+        self.decay_rate = 0.005
 
     # Linear
     def __linear(self, t) -> float:
@@ -59,6 +61,9 @@ class EpsilonDecayRate:
             1.0 + math.cos(math.pi * x)
         )
 
+    def __original(self, t) -> float:
+        return self.eps_max * ((self.eps_max - self.decay_rate) ** t)
+
     def decay(self, t) -> float:
         match self.method:
             case "linear":
@@ -73,5 +78,7 @@ class EpsilonDecayRate:
                 return self.__logistic(t)
             case "cosine":
                 return self.__cosine(t)
+            case "original":
+                return self.__original(t)
             case _:
                 raise ValueError(f"Unknown method: {self.method}")

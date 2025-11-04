@@ -121,6 +121,7 @@ class QmixRunner:
             # Initialize hidden states for all agents
             # at the start of each round - GRU only
             self.mac.init_hidden()
+            self.maze.reset_reward_engine()
 
             while is_paused:
                 Logger().info("Game Reseting")
@@ -371,6 +372,7 @@ class QmixRunner:
         return block_number * max_rounds + (round_idx + 1)
 
     def _sliding_windows(self, transitions, W: int):
+        # TODO: This needs padding implementation
         # trim None
         try:
             L = transitions.index(None)
