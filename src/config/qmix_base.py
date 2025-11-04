@@ -71,6 +71,9 @@ class QmixBaseConfig(BaseModel):
     # Utilizes the initial ball position as part of the global/local state
     is_extended_obs_enabled: bool = Field(default=False)
 
+    # Whether to include common observation features for all agents (ball pos/velocity)
+    is_common_obs_enabled: bool = Field(default=True)
+
     # Learning rate
     learning_rate: float = Field(default=0.0003, ge=1e-6, le=1)
 
@@ -129,7 +132,12 @@ class QmixBaseConfig(BaseModel):
         if not QmixBaseConfig.PROCESSED and self.is_extended_obs_enabled:
             self.input_dim += 3
             self.state_shape = (self.state_shape[0] + 3,)
-            QmixBaseConfig.PROCESSED = True
+
+        if not QmixBaseConfig.PROCESSED and self.is_common_obs_enabled:
+            self.input_dim += 2
+
+        QmixBaseConfig.PROCESSED = True
+
         return self
 
     @model_validator(mode="after")

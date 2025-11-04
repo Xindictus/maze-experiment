@@ -63,15 +63,38 @@ class Experiment:
         return np.clip(norm_observation, -1.3, 1.3)
 
     def get_local_obs(self, agent_id: int) -> np.ndarray:
-        if agent_id == 0:
-            return self._global_obs.slice([0, 2, 4, 6])
-        elif agent_id == 1:
-            return self._global_obs.slice([1, 3, 5, 7])
-        else:
+        common_obs = np.array([], dtype=float)
+        obs_slices = {
+            0: [0, 2, 4, 6],
+            1: [1, 3, 5, 7],
+        }
+
+        # Ball position & velocity are common and not something agents control
+        if self._config.is_common_obs_enabled:
+            common_obs = self._global_obs.slice([0, 1, 2, 3])
+            obs_slices = {
+                0: [4, 6],
+                1: [5, 7],
+            }
+
+        # Each agent gets at least its own board angle & angular speed
+        if agent_id not in obs_slices:
             raise ValueError(f"Invalid agent ID: {agent_id}")
+
+        return np.concatenate(
+            [common_obs, self._global_obs.slice(obs_slices[agent_id])]
+        )
 
     def get_global_state_T(self) -> T.Tensor:
         return self._global_obs.to_tensor()
 
     def get_env_actions(self, actions: List[int]) -> List[int]:
+        """_summary_
+
+        Args:
+            actions (List[int]): Agent actions
+
+        Returns:
+            List[int]: Env compatible actions
+        """
         return [-1 if action == 2 else action for action in actions]
