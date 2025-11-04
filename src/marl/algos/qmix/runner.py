@@ -372,6 +372,7 @@ class QmixRunner:
         return block_number * max_rounds + (round_idx + 1)
 
     def _sliding_windows(self, transitions, W: int):
+        # TODO: This needs padding implementation
         # trim None
         try:
             L = transitions.index(None)
