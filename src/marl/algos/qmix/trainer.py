@@ -90,7 +90,7 @@ class QmixTrainer(Trainer):
         dones = batch["dones"].float()
         # (batch, T)
         mask = batch["mask"].float()
-        mask[:, 1:] = mask[:, 1:] * (1 - dones[:, 1:])
+
         # (batch, T)
         rewards = batch["rewards"]
         states_input = batch["state"]
@@ -159,11 +159,14 @@ class QmixTrainer(Trainer):
 
         # Align time dim to td_error
         if mask.size(1) != td_error.size(1):
-            mask = mask[:, : td_error.size(1)]
+            mask = mask[:, : td_error.size(1), :]
+            dones = dones[:, : td_error.size(1), :]
+            rewards = rewards[:, : td_error.size(1), :]
+
+        mask[:, 1:, :] = mask[:, 1:, :] * (1.0 - dones[:, 1:, :])
 
         masked_td_error = td_error * mask
-        # masked_td_error = td_error * mask.unsqueeze(-1)
-        loss = (masked_td_error**2).sum() / mask.sum()
+        loss = (masked_td_error**2).sum() / mask.sum().clamp_min(1e-8)
 
         Logger().debug(f"mask: {mask}")
         Logger().debug(f"td_error: {td_error}")
