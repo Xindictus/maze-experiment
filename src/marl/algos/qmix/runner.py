@@ -54,10 +54,11 @@ class QmixRunner:
         self.current_block = 0
 
         # TODO: Dirty - Refactor
-        self.to_dump = ["epsilons", "losses", "rewards", "wins"]
+        self.to_dump = ["epsilons", "losses", "rewards", "steps", "wins"]
         self.epsilons = []
         self.losses = []
         self.rewards = []
+        self.steps = []
         self.wins = {}
 
     def _run_loop(self) -> None:
@@ -322,6 +323,7 @@ class QmixRunner:
             # TODO: Dirty - Refactor
             self.epsilons.append(self.epsilon)
             self.rewards.append(episode_reward)
+            self.steps.append(step_counter)
 
             if mode == "train":
                 if self._is_episode_buffer():
