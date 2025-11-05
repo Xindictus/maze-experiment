@@ -54,10 +54,11 @@ class QmixRunner:
         self.current_block = 0
 
         # TODO: Dirty - Refactor
-        self.to_dump = ["epsilons", "losses", "rewards", "wins"]
+        self.to_dump = ["epsilons", "losses", "rewards", "steps", "wins"]
         self.epsilons = []
         self.losses = []
         self.rewards = []
+        self.steps = []
         self.wins = {}
 
     def _run_loop(self) -> None:
@@ -77,7 +78,8 @@ class QmixRunner:
                 return
 
             Logger().info(f"Save checkpoint: {block}")
-            self.save_chkp()
+
+        self.save_chkp()
 
         total_test_wins = sum(
             sum(self.wins[v]["test"]) for _, v in enumerate(self.wins)
@@ -321,6 +323,7 @@ class QmixRunner:
             # TODO: Dirty - Refactor
             self.epsilons.append(self.epsilon)
             self.rewards.append(episode_reward)
+            self.steps.append(step_counter)
 
             if mode == "train":
                 if self._is_episode_buffer():
@@ -330,7 +333,8 @@ class QmixRunner:
 
                     if windows:
                         packed = [
-                            self._pack_episode(episode=win) for win in windows
+                            self._pack_episode(episode=win, real_t=real_t)
+                            for win, real_t in windows
                         ]
                         self.replay_buffer.add_many(packed)
 
@@ -371,19 +375,24 @@ class QmixRunner:
     def _global_round(self, block_number, max_rounds, round_idx):
         return block_number * max_rounds + (round_idx + 1)
 
-    def _sliding_windows(self, transitions, W: int):
-        # TODO: This needs padding implementation
+    def _sliding_windows(self, transitions, W: int) -> Dict[List, int]:
         # trim None
         try:
             L = transitions.index(None)
         except ValueError:
             L = len(transitions)
 
-        if L < W:
+        if L == 0:
             return []
 
+        seq = transitions[:L]
+
+        if L < W:
+            # one padded window
+            return [(seq + [seq[-1]] * (W - L), L)]
+
         # creates shallow sublists
-        return [transitions[i : i + W] for i in range(L - W + 1)]
+        return [(seq[i : i + W], W) for i in range(L - W + 1)]
 
     def _is_episode_buffer(self):
         return self.config.experiment.buffer_type == "episode"
@@ -394,7 +403,7 @@ class QmixRunner:
     def _pack_transition(self, transition: Dict[str, Any]) -> Dict:
         return self._pack_episode([transition])
 
-    def _pack_episode(self, episode: List[Dict]) -> Dict:
+    def _pack_episode(self, episode: List[Dict], real_t: int = 1) -> Dict:
         t = len(episode)
         N = len(episode[0]["obs"])
         obs_dim = episode[0]["obs"][0].shape[0]
@@ -406,7 +415,15 @@ class QmixRunner:
         actions = np.zeros((t, N, 1), dtype=np.int64)
         rewards = np.zeros((t, 1), dtype=np.float32)
         dones = np.zeros((t, 1), dtype=np.float32)
-        mask = np.ones((t, 1), dtype=np.float32)
+
+        # 1 for real steps, 0 for padded
+        mask = np.concatenate(
+            [
+                np.ones((real_t, 1), np.float32),
+                np.zeros((t - real_t, 1), np.float32),
+            ],
+            axis=0,
+        )
 
         # Static avail_actions: [T + 1, N, n_actions] filled with 1s
         # TODO: static avail_actions. [T + 1, N, n_actions]
@@ -426,8 +443,14 @@ class QmixRunner:
             actions[t_step] = np.array(
                 transition["actions"], dtype=np.int64
             ).reshape(N, 1)
-            rewards[t_step] = transition["reward"]
-            dones[t_step] = float(transition["done"])
+
+            if t_step < real_t:
+                rewards[t_step] = transition["reward"]
+                dones[t_step] = float(transition["done"])
+            else:
+                # to avoid any leak in training
+                rewards[t_step] = 0.0
+                dones[t_step] = 0.0
 
         # Handle final obs and state
         obs[t] = np.stack(episode[-1]["next_obs"])
@@ -451,7 +474,31 @@ class QmixRunner:
         }
 
     def save_chkp(self) -> None:
-        pass
+        base_path = f"{self.out_dir}"
+
+        # Save agent weights
+        agent_payload = {
+            "main": self.mac.agent_states(),
+            "target": self.trainer.target_mac.agent_states(),
+        }
+
+        dump(
+            agent_payload,
+            f"{base_path}/agents_chkp.joblib",
+            compress=("gzip", 5),
+        )
+
+        # Save mixer weights
+        mixer_payload = {
+            "main": self.trainer.mixer.mixer_state(),
+            "target": self.trainer.target_mixer.mixer_state(),
+        }
+
+        dump(
+            mixer_payload,
+            f"{base_path}/mixers_chkp.joblib",
+            compress=("gzip", 5),
+        )
 
     def save_results(self) -> None:
         for name in self.to_dump:

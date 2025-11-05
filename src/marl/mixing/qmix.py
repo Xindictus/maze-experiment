@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Dict, Literal
 
 import torch as T
 import torch.nn as nn
@@ -197,3 +197,6 @@ class QMixer(nn.Module):
 
         # Qtot​(s,a)= fθ(Q1​, ..., QN​) + V(s)
         return q_tot
+
+    def mixer_state(self) -> Dict[str, T.Tensor]:
+        return {k: v.detach().cpu() for k, v in self.state_dict().items()}
